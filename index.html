@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>แผนที่ผังเมือง</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data/plans.js"></script>
+<style>
+:root{--ink:#1c2430;--mute:#5d6878;--line:#d9dee6;--bg:#fff;--soft:#f3f5f8;--acc:#0b6bcb;--warn:#8a5300;--warnbg:#fff4dc;--ok:#1b6e3c;--okbg:#e6f5ec}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:"Sarabun","Leelawadee UI","Noto Sans Thai",Tahoma,sans-serif;color:var(--ink);font-size:15px}
+#map{position:absolute;inset:0;background:#dfe5ec}
+.bar{position:absolute;z-index:1200;top:10px;left:10px;right:10px;display:flex;gap:8px;max-width:640px;pointer-events:none}
+.bar>*{pointer-events:auto}
+.search{flex:1;position:relative}
+.search input{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;padding:0 14px;font:inherit;background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.search input:focus{outline:2px solid var(--acc)}
+.sug{position:absolute;top:48px;left:0;right:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2);max-height:55vh;overflow:auto;display:none}
+.sug div{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--soft)}
+.sug div:hover,.sug div.on{background:var(--soft)}
+.sug small{color:var(--mute);display:block}
+.btn{height:44px;min-width:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:inherit;padding:0 12px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18);white-space:nowrap}
+.btn:hover{background:var(--soft)}
+.ctl{position:absolute;z-index:900;left:10px;bottom:24px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 2px 8px rgba(0,0,0,.18);width:230px;font-size:13.5px}
+.ctl label{display:flex;align-items:center;gap:6px;margin:4px 0}
+.ctl select,.ctl input[type=range]{width:100%;font:inherit}
+.ctl .lg{display:flex;align-items:center;gap:6px;color:var(--mute);margin-top:3px}
+.ctl .lg i{display:inline-block;width:22px;height:0;border-top:2.5px solid}
+.ctl h4{margin:8px 0 2px;font-size:12.5px;color:var(--mute);font-weight:600}
+.ctl .tgl{display:none}
+.panel{position:absolute;z-index:1100;top:64px;right:10px;bottom:24px;width:400px;max-width:calc(100vw - 20px);background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.22);display:none;flex-direction:column;overflow:hidden}
+.panel.open{display:flex}
+.panel header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--soft)}
+.panel header b{flex:1;font-size:14px}
+.panel header button{border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--mute);padding:2px 8px}
+.body{overflow:auto;padding:12px 14px 18px;-webkit-overflow-scrolling:touch}
+.coord{font-variant-numeric:tabular-nums;color:var(--mute);font-size:13.5px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-bottom:10px}
+.coord a,.lnk{color:var(--acc);text-decoration:none;cursor:pointer}
+.card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.card.main{border-color:#9ec3ea;background:#f6faff}
+.cap{font-size:12.5px;color:var(--mute);margin-bottom:2px}
+.name{font-size:17px;font-weight:700;line-height:1.35;margin-bottom:6px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.tag{font-size:12.5px;border-radius:99px;padding:2px 9px;background:var(--soft);border:1px solid var(--line)}
+.tag.ok{background:var(--okbg);border-color:#b7dfc6;color:var(--ok)}
+.tag.old{background:#eee;color:#666}
+.w{background:var(--warnbg);border:1px solid #f0d49a;color:var(--warn);border-radius:8px;padding:7px 10px;margin:6px 0;font-size:13.5px;line-height:1.5}
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.acts a,.acts button{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--ink);text-decoration:none}
+.acts a:hover,.acts button:hover{background:var(--soft)}
+.acts .pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.acts .pri:hover{background:#0958a8}
+details{margin-top:8px;font-size:13.5px}
+details summary{cursor:pointer;color:var(--mute)}
+details p{margin:6px 0;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.other{padding:8px 0;border-bottom:1px solid var(--soft);display:flex;gap:8px;align-items:flex-start}
+.other:last-child{border:0}
+.other div{flex:1}
+.other small{color:var(--mute);display:block}
+.foot{color:var(--mute);font-size:12.5px;line-height:1.5;margin-top:10px}
+h3{font-size:13.5px;margin:14px 0 4px;color:var(--mute)}
+.prov summary{padding:7px 0;color:var(--ink);font-weight:600;border-bottom:1px solid var(--soft)}
+.prov .it{padding:6px 0 6px 14px;cursor:pointer;border-bottom:1px solid var(--soft)}
+.prov .it:hover{background:var(--soft)}
+.prov .it small{color:var(--mute)}
+.hint{position:absolute;z-index:800;left:50%;transform:translateX(-50%);bottom:28px;background:rgba(28,36,48,.88);color:#fff;border-radius:99px;padding:8px 16px;font-size:13.5px;pointer-events:none;white-space:nowrap}
+.zc{border:1px dashed #9ec3ea;border-radius:10px;padding:10px 12px;margin:0 0 10px;background:#fff;font-size:14px;line-height:1.55}
+.zc .zv{display:flex;align-items:center;gap:10px;margin:4px 0}
+.zc .sw{flex:none;width:30px;height:30px;border-radius:6px;border:1px solid rgba(0,0,0,.25)}
+.zc .zn{font-size:16px;font-weight:700}
+.zc small{color:var(--mute);display:block}
+#lock{position:fixed;inset:0;z-index:3000;background:#eef2f6;display:flex;align-items:center;justify-content:center;padding:16px}
+#lock[hidden],#viewer[hidden]{display:none}
+#lock form{background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.15);padding:24px 22px;width:100%;max-width:360px}
+#lock h1{font-size:20px;margin:0 0 4px}
+#lock p{margin:0 0 14px;color:var(--mute);font-size:14px}
+#lock input[type=password]{width:100%;height:46px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;font-size:16px}
+#lock label{display:flex;gap:8px;align-items:center;margin:12px 0;font-size:14px}
+#lock button{width:100%;height:46px;border:0;border-radius:10px;background:var(--acc);color:#fff;font:inherit;font-size:16px;cursor:pointer}
+#lock button:disabled{opacity:.6}
+#lockMsg{margin-top:10px;font-size:14px;color:#b00020;min-height:20px}
+#viewer{position:fixed;inset:0;z-index:2500;background:#1b1f24;display:flex;flex-direction:column}
+#viewer header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#2a3038;color:#fff}
+#viewer header b{flex:1;font-size:14px}
+#viewer header button{border:0;background:none;color:#fff;font-size:26px;cursor:pointer;padding:0 8px}
+#viewer .vb{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;text-align:center}
+#viewer img{width:100%;height:auto;display:block;background:#fff;cursor:zoom-in}
+#viewer img.big{width:auto;max-width:none;cursor:zoom-out}
+#viewer .vmsg{color:#cfd6de;padding:24px;font-size:14px}
+@media (max-width:760px){
+ .panel{top:auto;left:0;right:0;bottom:0;width:auto;max-width:none;max-height:56vh;border-radius:14px 14px 0 0}
+ .ctl{bottom:auto;top:62px;width:auto;padding:0;border:0;background:none;box-shadow:none}
+ .ctl .tgl{display:block}
+ .ctl .in{display:none;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:6px;width:230px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+ .ctl.open .in{display:block}
+ .btn span{display:none}
+ .hint{bottom:14px;font-size:12.5px}
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="bar">
+  <div class="search">
+    <input id="q" type="search" autocomplete="off" placeholder="วางพิกัด เช่น 13.7563, 100.5018 หรือพิมพ์ชื่อผัง / จังหวัด">
+    <div class="sug" id="sug"></div>
+  </div>
+  <button class="btn" id="bList" title="รายชื่อผังทั้งหมด">☰<span> รายชื่อผัง</span></button>
+  <button class="btn" id="bLoc" title="ตำแหน่งของฉัน">◎</button>
+</div>
+<div class="ctl" id="ctl">
+  <button class="btn tgl" id="bCtl">⚙ ตั้งค่าแผนที่</button>
+  <div class="in">
+    <select id="base"></select>
+    <label><input type="checkbox" id="cImg" checked> ซ้อนภาพผัง</label>
+    <label style="display:block">ความทึบภาพผัง <input type="range" id="op" min="0" max="100" value="70"></label>
+    <label><input type="checkbox" id="cLine" checked> เส้นขอบเขตผัง</label>
+    <div class="lg"><i style="border-color:#d6006c"></i>ผังเมือง / ชุมชน</div>
+    <div class="lg"><i style="border-color:#e07b00"></i>แผนผัง EEC</div>
+    <div class="lg"><i style="border-color:#1f4fbf;border-top-style:dashed"></i>ผังจังหวัด</div>
+    <div class="lg"><i style="border-color:#777;border-top-style:dotted"></i>ฉบับเดิม (ถูกแทนแล้ว)</div>
+  </div>
+</div>
+<div class="hint" id="hint">แตะบนแผนที่เพื่อดูว่าจุดนั้นอยู่ผังไหน</div>
+<div id="lock" hidden><form id="lockForm" autocomplete="on">
+  <h1>แผนที่ผังเมือง</h1><p>ใส่รหัสผ่านเพื่อเปิดแผนที่</p>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+  <label><input type="checkbox" id="remember" checked> จำบนเครื่องนี้ (ครั้งต่อไปไม่ต้องใส่)</label>
+  <button id="pwGo">เปิดแผนที่</button><div id="lockMsg"></div>
+</form></div>
+<div id="viewer" hidden><header><b id="vTitle"></b><button id="vClose" title="ปิด">×</button></header><div class="vb" id="vBody"></div></div>
+<aside class="panel" id="panel">
+  <header><b id="pTitle"></b><button id="pClose" title="ปิด">×</button></header>
+  <div class="body" id="pBody"></div>
+</aside>
+<script>
+(function(){
+"use strict";
+/* ---------- โหมดล็อก: ข้อมูลและภาพทุกไฟล์เข้ารหัส AES-GCM · กุญแจหลักห่อด้วยรหัสผ่าน (PBKDF2) อยู่ใน window.ZLOCK ---------- */
+var LOCK=window.ZLOCK||null,KEY=null,KSTORE="zmap.k",BLANK="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+var b64=function(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;};
+var tob64=function(u){var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s);};
+function fail(msg){document.body.innerHTML='<p style="padding:24px;font-size:16px;line-height:1.6">'+msg+"</p>";}
+function dec(buf){var u=new Uint8Array(buf);return crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},KEY,u.slice(12));}
+function fetchDec(path){return fetch(path).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.arrayBuffer();}).then(dec);}
+function useKey(raw){return crypto.subtle.importKey("raw",raw,"AES-GCM",false,["decrypt"]).then(function(k){KEY=k;return fetchDec(LOCK.data);}).then(function(b){return JSON.parse(new TextDecoder().decode(b));});}
+function unwrap(pw){
+ return crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]).then(function(base){
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(LOCK.salt),iterations:LOCK.iter,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["decrypt"]);
+ }).then(function(kek){return crypto.subtle.decrypt({name:"AES-GCM",iv:b64(LOCK.iv)},kek,b64(LOCK.wk));}).then(function(r){return new Uint8Array(r);});}
+function forget(){try{localStorage.removeItem(KSTORE);}catch(e){}}
+function showLock(){
+ var f=document.getElementById("lockForm"),go=document.getElementById("pwGo"),msg=document.getElementById("lockMsg"),pw=document.getElementById("pw");
+ document.getElementById("lock").hidden=false;pw.focus();
+ f.onsubmit=function(e){e.preventDefault();go.disabled=true;go.textContent="กำลังเปิด...";msg.textContent="";var raw;
+  unwrap(pw.value).then(function(r){raw=r;return useKey(r);},function(){throw new Error("pw");}).then(function(data){
+   if(document.getElementById("remember").checked){try{localStorage.setItem(KSTORE,tob64(raw));}catch(e){}}
+   document.getElementById("lock").hidden=true;pw.value="";start(data);
+  }).catch(function(err){go.disabled=false;go.textContent="เปิดแผนที่";
+   msg.textContent=err&&err.message==="pw"?"รหัสผ่านไม่ถูกต้อง":"โหลดข้อมูลไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่";pw.select();});};}
+function boot(){
+ if(!window.L)return fail("เปิดแผนที่ไม่ได้: ต้องต่ออินเทอร์เน็ต");
+ if(window.ZDATA)return start(window.ZDATA);
+ if(!LOCK)return fail('เปิดแผนที่ไม่ได้: ต้องมีโฟลเดอร์ "ข้อมูล" กับ "ภาพผัง" อยู่ข้างไฟล์นี้');
+ if(!(window.crypto&&crypto.subtle))return fail("เปิดแผนที่ไม่ได้: ต้องเปิดผ่านเว็บ (https) เท่านั้น เปิดจากไฟล์ในเครื่องไม่ได้");
+ var saved=null;try{saved=localStorage.getItem(KSTORE);}catch(e){}
+ if(!saved)return showLock();
+ useKey(b64(saved)).then(start,function(){forget();showLock();});}
+/* ภาพซ้อน: โหมดในเครื่องใช้ไฟล์ตรง · โหมดล็อกโหลดไฟล์เข้ารหัส ถอดเป็น blob แล้วค่อยวางบนแผนที่ */
+var mapRef=null;
+function mkOverlay(local,enc,b,opts){
+ if(!KEY)return L.imageOverlay(encodeURI(local),b,opts).addTo(mapRef);
+ var o=L.imageOverlay(BLANK,b,opts);
+ fetchDec("f/"+enc+".bin").then(function(buf){if(o._dead)return;o._blob=URL.createObjectURL(new Blob([buf],{type:"image/webp"}));o.setUrl(o._blob);o.addTo(mapRef);},function(){if(!o._dead)o.fire("error");});
+ return o;}
+function dropOverlay(o){o._dead=1;if(mapRef.hasLayer(o))mapRef.removeLayer(o);if(o._blob){URL.revokeObjectURL(o._blob);o._blob=null;}}
+
+function start(Z){
+var P=Z.plans,A=Z.amend,byId={};P.forEach(function(p){byId[p.id]=p;});A.forEach(function(a){byId[a.id]=a;a.sheet=true;});
+var $=function(id){return document.getElementById(id);};
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+var MON=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+var thDate=function(iso){var m=/^(\d{4})-(\d\d)-(\d\d)/.exec(iso||"");return m?(+m[3])+" "+MON[m[2]-1]+" "+(+m[1]+543):"";};
+
+/* ---------- แผนที่ฐาน ---------- */
+var map=mapRef=L.map("map",{zoomControl:false,preferCanvas:true,maxZoom:20,minZoom:5}).setView([13.3,101.3],6);
+L.control.zoom({position:"bottomright"}).addTo(map);
+L.control.scale({imperial:false,position:"bottomright"}).addTo(map);
+var SITE=!!window.ZSITE,ESRI="https://server.arcgisonline.com/ArcGIS/rest/services/",BASES={};
+var esriImg=function(){return L.tileLayer(ESRI+"World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,maxNativeZoom:19,attribution:"ภาพ © Esri, Maxar, Earthstar Geographics"});};
+var esriRef=function(n){return L.tileLayer(ESRI+"Reference/"+n+"/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,maxNativeZoom:19});};
+if(!SITE){ /* ชุดในเครื่องเท่านั้น: ภาพ Google (ชุดเว็บสาธารณะไม่ใช้ เพราะเงื่อนไขของ Google ไม่ให้ดึงภาพตรง) */
+ BASES["ดาวเทียม + ชื่อถนน (Google)"]=L.tileLayer("https://mt{s}.google.com/vt/lyrs=y&hl=th&x={x}&y={y}&z={z}",{subdomains:"0123",maxZoom:20,maxNativeZoom:20,attribution:"ภาพ © Google"});
+ BASES["แผนที่ถนน (Google)"]=L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&hl=th&x={x}&y={y}&z={z}",{subdomains:"0123",maxZoom:20,attribution:"© Google"});}
+BASES["ดาวเทียม + ถนน (Esri)"]=L.layerGroup([esriImg(),esriRef("World_Transportation"),esriRef("World_Boundaries_and_Places")]);
+BASES["ดาวเทียมล้วน (Esri)"]=esriImg();
+BASES["แผนที่ถนน ชื่อไทย (OpenStreetMap)"]=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,maxNativeZoom:19,attribution:"© ผู้ร่วมสร้าง OpenStreetMap"});
+var baseNow=null,selBase=$("base");
+Object.keys(BASES).forEach(function(k){var o=document.createElement("option");o.textContent=k;selBase.appendChild(o);});
+function setBase(k){if(baseNow)map.removeLayer(baseNow);baseNow=BASES[k].addTo(map);try{localStorage.setItem("zmap.base",k);}catch(e){}}
+var saved=null;try{saved=localStorage.getItem("zmap.base");}catch(e){}
+if(!BASES[saved])saved=Object.keys(BASES)[0];selBase.value=saved;setBase(saved);
+selBase.onchange=function(){setBase(selBase.value);};
+[["prov",350],["eec",355],["city",360],["sheet",370]].forEach(function(x){map.createPane(x[0]).style.zIndex=x[1];});
+map.createPane("lines").style.zIndex=420;map.getPane("lines").style.pointerEvents="none";
+
+/* ---------- เส้นขอบเขต ---------- */
+var ll=function(g){return g.map(function(poly){return poly.map(function(r){return r.map(function(c){return[c[1],c[0]];});});});};
+var lineStyle=function(p){
+ if(p.rk===9)return{color:"#777",weight:1.5,dashArray:"2 5"};
+ if(p.lv==="จังหวัด")return{color:"#1f4fbf",weight:1.6,dashArray:"7 5"};
+ if(p.lv==="เมือง/ชุมชน")return{color:"#d6006c",weight:2};
+ return{color:"#e07b00",weight:2};};
+var lineRenderer=L.canvas({pane:"lines"}),lines=L.layerGroup().addTo(map);
+P.forEach(function(p){var s=lineStyle(p);s.fill=false;s.interactive=false;s.renderer=lineRenderer;p._line=L.polygon(ll(p.g),s).addTo(lines);});
+var hi=L.polygon([],{color:"#ffd400",weight:4,fill:false,interactive:false,renderer:lineRenderer});
+$("cLine").onchange=function(){if(this.checked)lines.addTo(map);else map.removeLayer(lines);};
+
+/* ---------- ภาพผังซ้อน (โหลดเฉพาะผังที่อยู่ในจอและใหญ่พอ) ---------- */
+var shown={},pinned={},opacity=.7,focus=null;
+var paneOf=function(p){return p.sheet?"sheet":p.lv==="จังหวัด"?"prov":p.lv==="เมือง/ชุมชน"?"city":"eec";};
+function wanted(){ /* ใช้กรอบของแนวเขตผัง (ไม่ใช่กรอบภาพทั้งแผ่น) ตัดสินว่าผังอยู่ในจอ · ผังที่ครอบกลางจอมาก่อน */
+ var out=[],b=map.getBounds(),ct=map.getCenter(),c=[];
+ P.concat(A).forEach(function(p){
+  if(pinned[p.id]||p.id===focus){out.push(p);return;}
+  if(!$("cImg").checked||p.sheet||p.rk===9)return;
+  var pb=p._line.getBounds();if(!b.intersects(pb))return;
+  var w=map.latLngToContainerPoint(pb.getNorthEast()).x-map.latLngToContainerPoint(pb.getSouthWest()).x;
+  if(w<160)return;c.push([p,w,pb.contains(ct)?0:1]);});
+ c.sort(function(a,b){return a[2]-b[2]||a[0].rk-b[0].rk||b[1]-a[1];});
+ return out.concat(c.slice(0,14).map(function(x){return x[0];}));}
+var tiles={},detail={};
+var mercY=function(lat){return Math.log(Math.tan(Math.PI/4+lat*Math.PI/360));},invY=function(y){return(2*Math.atan(Math.exp(y))-Math.PI/2)*180/Math.PI;};
+function tileBounds(p,r,c){ /* แผ่นย่อยอยู่ในพิกัดแผนที่เว็บ: แกนตั้งต้องแปลงผ่านค่า mercator */
+ var W=p.t.s[0],H=p.t.s[1],n=p.t.n,w0=p.b[0][1],e0=p.b[1][1],yn=mercY(p.b[1][0]),ys=mercY(p.b[0][0]);
+ var x0=c*n,x1=Math.min(W,x0+n),y0=r*n,y1=Math.min(H,y0+n);
+ return[[invY(yn-(yn-ys)*y1/H),w0+(e0-w0)*x0/W],[invY(yn-(yn-ys)*y0/H),w0+(e0-w0)*x1/W]];}
+function tilesReady(id){ /* แผ่นย่อยของผังนี้โหลดครบ → ซ่อนภาพย่อ กันสีซ้อนสองชั้น */
+ var ok=true;Object.keys(tiles).forEach(function(k){if(k.indexOf(id+"/")===0&&!tiles[k]._ok)ok=false;});
+ if(ok&&detail[id]&&shown[id])shown[id].setOpacity(0);}
+function refresh(){
+ var need={};wanted().forEach(function(p){need[p.id]=p;});
+ Object.keys(shown).forEach(function(id){if(!need[id]){dropOverlay(shown[id]);delete shown[id];}});
+ Object.keys(need).forEach(function(id){if(!shown[id]){shown[id]=mkOverlay("ภาพผัง/"+id+".webp",need[id].f,need[id].b,{opacity:opacity,pane:paneOf(need[id]),interactive:false});}});
+ var needT={},vb=map.getBounds(),n=0,was=detail;detail={};
+ Object.keys(need).forEach(function(id){
+  var p=need[id];if(!p.t)return;var pb=L.latLngBounds(p.b);
+  var w=map.latLngToContainerPoint(pb.getNorthEast()).x-map.latLngToContainerPoint(pb.getSouthWest()).x;
+  if(w<p.wh[0]*1.25)return;detail[id]=1;
+  p.t.k.forEach(function(k,i){if(n>=48)return;var rc=k.split("_"),tb=tileBounds(p,+rc[0],+rc[1]);if(vb.intersects(tb)){needT[id+"/"+k]=[p,tb,i];n++;}});});
+ Object.keys(tiles).forEach(function(k){if(!needT[k]){dropOverlay(tiles[k]);delete tiles[k];}});
+ Object.keys(needT).forEach(function(k){if(tiles[k])return;var p=needT[k][0];
+  var t=tiles[k]=mkOverlay("ภาพผัง/"+k+".webp",p.t.f?p.t.f[needT[k][2]]:null,needT[k][1],{opacity:opacity,pane:paneOf(p),interactive:false});
+  t.on("load error",function(){t._ok=1;tilesReady(p.id);});});
+ Object.keys(shown).forEach(function(id){if(!detail[id])shown[id].setOpacity(opacity);else if(was[id])tilesReady(id);});}
+map.on("moveend zoomend",refresh);
+$("cImg").onchange=refresh;
+$("op").oninput=function(){opacity=this.value/100;
+ Object.keys(shown).forEach(function(id){if(!detail[id])shown[id].setOpacity(opacity);});
+ Object.keys(tiles).forEach(function(k){tiles[k].setOpacity(opacity);});};
+
+/* ---------- หาผัง ณ จุด ---------- */
+function inRing(r,x,y){var c=false;for(var i=0,j=r.length-1;i<r.length;j=i++){var a=r[i],b=r[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+function inside(g,x,y){for(var i=0;i<g.length;i++){var poly=g[i];if(inRing(poly[0],x,y)){var hole=false;for(var k=1;k<poly.length;k++)if(inRing(poly[k],x,y)){hole=true;break;}if(!hole)return true;}}return false;}
+var inB=function(b,x,y){return y>=b[0][0]&&y<=b[1][0]&&x>=b[0][1]&&x<=b[1][1];};
+function edgeDist(g,x,y){ /* ระยะถึงแนวเขตที่ใกล้สุด (เมตร โดยประมาณ) */
+ var kx=111320*Math.cos(y*Math.PI/180),ky=110540,best=1e12;
+ g.forEach(function(poly){poly.forEach(function(r){for(var i=1;i<r.length;i++){
+  var ax=(r[i-1][0]-x)*kx,ay=(r[i-1][1]-y)*ky,bx=(r[i][0]-x)*kx,by=(r[i][1]-y)*ky,dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy;
+  var t=L2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/L2)):0,px=ax+t*dx,py=ay+t*dy,d=px*px+py*py;if(d<best)best=d;}});});
+ return Math.sqrt(best);}
+var effG=function(p){return p.e===1?p.g:p.e;};
+function lookup(x,y){
+ var cover=P.filter(function(p){return inB(p.b,x,y)&&inside(p.g,x,y);});
+ var live=cover.filter(function(p){return p.rk!==9;});
+ var hit=live.filter(function(p){return p.e&&inside(effG(p),x,y);}).sort(function(a,b){return a.rk-b.rk;})[0];
+ if(!hit&&live.length)hit=live.slice().sort(function(a,b){return a.rk-b.rk||(a.dt<b.dt?1:-1);})[0];
+ return{hit:hit,cover:cover,sheets:A.filter(function(a){return inB(a.b,x,y);})};}
+
+
+/* ---------- อ่านสีที่ดิน ณ จุด จากภาพผัง (⚠️ อนุมาน · วิธีเดียวกับ scripts/market_zoning.py) ---------- */
+var MEANING={"เหลือง":"ที่อยู่อาศัยหนาแน่นน้อย (ย.1–ย.4)","ส้ม":"ที่อยู่อาศัยหนาแน่นปานกลาง (ย.5–ย.7)",
+ "น้ำตาล":"ที่อยู่อาศัยหนาแน่นมาก (ย.8–ย.10) หรืออนุรักษ์ศิลปวัฒนธรรม (สีอ่อน)","แดง":"พาณิชยกรรม (พ.)","ชมพู":"ชุมชน (ผังจังหวัด) หรือพาณิชยกรรม",
+ "ม่วง":"อุตสาหกรรม (อ.)","ม่วงอ่อน":"คลังสินค้า หรืออุตสาหกรรมบางประเภท","เขียว":"ชนบทและเกษตรกรรม (ก.) หรืออนุรักษ์ป่าไม้",
+ "เขียวอ่อน":"ชนบทและเกษตรกรรม (ขาวลายเขียว) หรือที่โล่ง (ล.)","ฟ้า":"แหล่งน้ำ สถาบันศาสนา หรือสีน้ำเงินที่ซีด/มีลายทับ (สถาบันราชการ)","น้ำเงิน":"สถาบันราชการ สาธารณูปโภคและสาธารณูปการ (ส.)",
+ "เทา":"สถาบันศาสนา หรือสถาบันการศึกษา","ขาว":"ไม่กำหนดสี นอกแนวเขต หรือแนวถนน/แหล่งน้ำ"};
+function hsv(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,h=0;
+ if(d){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360;}return[h,mx?d/mx:0,mx];}
+function colorName(r,g,b){var t=hsv(r,g,b),h=t[0],s=t[1],v=t[2];
+ if(v>0.9&&s<0.10)return"ขาว";if(s<0.12)return"เทา";
+ if(h>=285&&h<345&&s>=0.2)return(v>0.85&&s<0.40)?"ชมพู":"ม่วง";
+ if(h<15||h>=345)return(v>0.85&&s<0.45)?"ชมพู":(v<0.6?"น้ำตาล":"แดง");
+ if(h<40)return v<0.7?"น้ำตาล":"ส้ม";
+ if(h<70)return v<0.6?"น้ำตาล":"เหลือง";
+ if(h<165)return(s<0.35&&v>0.8)?"เขียวอ่อน":"เขียว";
+ if(h<200)return"ฟ้า";
+ if(h<255)return(s<0.35&&v>0.8)?"ฟ้า":"น้ำเงิน";
+ if(h<320)return(s<0.30&&v>0.8)?"ม่วงอ่อน":"ม่วง";
+ return(v>0.85&&s<0.45)?"ชมพู":"แดง";}
+function tolOf(p){var n=[100,p.err||0,10*(p.px||0)],m,a=/±\s*\d+[–-](\d+)\s*ม/g,b=/คลาด[^·]*?~?(\d+)\s*ม/g;
+ while((m=a.exec(p.note)))n.push(+m[1]);while((m=b.exec(p.note)))n.push(+m[1]);return Math.round(Math.max.apply(null,n));}
+function loadImg(local,enc){return new Promise(function(res,rej){
+ function go(src,blob){var im=new Image();im.onload=function(){res({im:im,blob:blob});};im.onerror=function(){if(blob)URL.revokeObjectURL(blob);rej(new Error("img"));};im.src=src;}
+ if(KEY)fetchDec("f/"+enc+".bin").then(function(b){var u=URL.createObjectURL(new Blob([b],{type:"image/webp"}));go(u,u);},rej);else go(encodeURI(local),null);});}
+function integ(src,w,h){ /* ตารางผลรวมสะสม (w+1)x(h+1) */
+ var I=new Float64Array((w+1)*(h+1));for(var y=0;y<h;y++){var row=0;for(var x=0;x<w;x++){row+=src[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+row;}}return I;}
+function boxSum(I,w,h,x,y,r){var xa=Math.max(0,x-r),ya=Math.max(0,y-r),xb=Math.min(w,x+r+1),yb=Math.min(h,y+r+1),W=w+1;
+ return[I[yb*W+xb]-I[ya*W+xb]-I[yb*W+xa]+I[ya*W+xa],(xb-xa)*(yb-ya)];}
+function analyse(d,w,h,cx,cy,mpp,tol){
+ var N=w*h,R=new Float32Array(N),G=new Float32Array(N),B=new Float32Array(N),A=new Uint8Array(N),MX=new Float32Array(N),i;
+ for(i=0;i<N;i++){R[i]=d[4*i];G[i]=d[4*i+1];B[i]=d[4*i+2];A[i]=d[4*i+3]>127?1:0;MX[i]=Math.max(R[i],G[i],B[i]);}
+ var k=Math.max(3,Math.round(60/mpp)|1),hk=k>>1,rr=Math.max(2,Math.round(40/mpp));
+ function smooth(dark,ref){
+  var wr=new Float32Array(N),wg=new Float32Array(N),wb=new Float32Array(N),ww=new Float32Array(N),rn=ref?Math.hypot(ref[0],ref[1],ref[2]):0;
+  for(var j=0;j<N;j++){var ok=A[j]&&MX[j]>110;
+   if(ok&&ref&&MX[j]<dark){var cs=(R[j]*ref[0]+G[j]*ref[1]+B[j]*ref[2])/(Math.hypot(R[j],G[j],B[j])*rn+1e-6);if(cs>0.98)ok=false;}
+   var wt=(ok||!A[j])?1:0;ww[j]=wt;wr[j]=(ok?R[j]:255)*wt;wg[j]=(ok?G[j]:255)*wt;wb[j]=(ok?B[j]:255)*wt;}
+  var Ir=integ(wr,w,h),Ig=integ(wg,w,h),Ib=integ(wb,w,h),Iw=integ(ww,w,h),sm=new Float32Array(3*N);
+  for(var y=0;y<h;y++)for(var x=0;x<w;x++){var q=boxSum(Iw,w,h,x,y,hk),o=3*(y*w+x);
+   if(q[0]/q[1]>0.05){sm[o]=boxSum(Ir,w,h,x,y,hk)[0]/q[0];sm[o+1]=boxSum(Ig,w,h,x,y,hk)[0]/q[0];sm[o+2]=boxSum(Ib,w,h,x,y,hk)[0]/q[0];}else{sm[o]=sm[o+1]=sm[o+2]=255;}}
+  var ch=[[],[],[]];for(var yy=Math.max(0,cy-rr);yy<=Math.min(h-1,cy+rr);yy++)for(var xx=Math.max(0,cx-rr);xx<=Math.min(w-1,cx+rr);xx++){var oo=3*(yy*w+xx);ch[0].push(sm[oo]);ch[1].push(sm[oo+1]);ch[2].push(sm[oo+2]);}
+  var med=ch.map(function(a){a.sort(function(u,v){return u-v;});return a[a.length>>1];});
+  return[sm,med];}
+ var r1=smooth(110,null),sm=r1[0],c=r1[1];
+ if(hsv(c[0],c[1],c[2])[1]>0.3){r1=smooth(0.7*Math.max(c[0],c[1],c[2]),c);sm=r1[0];c=r1[1];}
+ var nw=0,nc=0,j0;for(var y2=Math.max(0,cy-rr);y2<=Math.min(h-1,cy+rr);y2++)for(var x2=Math.max(0,cx-rr);x2<=Math.min(w-1,cx+rr);x2++){j0=y2*w+x2;
+  if(!A[j0]){nw++;continue;}if(MX[j0]<=110)continue;var t0=hsv(R[j0],G[j0],B[j0]);if(t0[2]>0.85&&t0[1]<0.12)nw++;else nc++;}
+ var onWhite=nw>=4&&nw>1.2*nc; /* พิกเซลจริงรอบหมุดเป็นขาวมากกว่าสี = แนวถนน/แหล่งน้ำ/สัญลักษณ์ ไม่ใช่สีผสมจากการเบลอ (ภาพผังขาวถูกทำให้โปร่ง) */
+ if(onWhite)c=[255,255,255];
+ var cname=onWhite?"ขาว":colorName(c[0],c[1],c[2]),cache={},names=new Array(N);
+ for(i=0;i<N;i++){var qr=sm[3*i]>>2,qg=sm[3*i+1]>>2,qb=sm[3*i+2]>>2,key=qr*4096+qg*64+qb;
+  if(!(key in cache))cache[key]=colorName(qr*4+2,qg*4+2,qb*4+2);names[i]=cache[key];}
+ var groups={};for(i=0;i<N;i++){var nm=names[i];if(nm!==cname&&nm!=="ขาว"&&nm!=="เทา")groups[nm]=1;}
+ var masks={};Object.keys(groups).forEach(function(g){var m=new Uint8Array(N);for(var j=0;j<N;j++)m[j]=names[j]===g?1:0;masks[g]=m;});
+ var sh=new Uint8Array(N),any=0;if(!onWhite)for(i=0;i<N;i++)if(names[i]===cname&&Math.hypot(sm[3*i]-c[0],sm[3*i+1]-c[1],sm[3*i+2]-c[2])>80){sh[i]=1;any=1;}
+ if(any)masks[cname+" (คนละเฉด)"]=sh;
+ var best=null,near="";
+ Object.keys(masks).forEach(function(g){var m=masks[g],I=integ(m,w,h),e=new Uint8Array(N),x,y,j;
+  for(y=hk;y<h-hk;y++)for(x=hk;x<w-hk;x++){if(boxSum(I,w,h,x,y,hk)[0]===k*k)e[y*w+x]=1;}
+  var Ie=integ(e,w,h),dd=null;
+  for(y=0;y<h;y++)for(x=0;x<w;x++){j=y*w+x;if(!m[j])continue;if(boxSum(Ie,w,h,x,y,hk)[0]>0){var q=(x-cx)*(x-cx)+(y-cy)*(y-cy);if(dd===null||q<dd)dd=q;}}
+  if(dd!==null){var dm=Math.round(Math.sqrt(dd)*mpp);if(best===null||dm<best){best=dm;near=g;}}});
+ if(onWhite){ /* สีที่ติดใกล้สุดจากพิกเซลจริงที่เป็นสีสด แล้วใช้ค่ากลางของสีรอบพิกเซลนั้น */
+  var bd=null,bx=0,by=0;for(var y3=0;y3<h;y3++)for(var x3=0;x3<w;x3++){var j3=y3*w+x3;if(!A[j3]||MX[j3]<150)continue;var t3=hsv(R[j3],G[j3],B[j3]);if(t3[1]<0.15)continue;
+   var q3=(x3-cx)*(x3-cx)+(y3-cy)*(y3-cy);if(bd===null||q3<bd){bd=q3;bx=x3;by=y3;}}
+  if(bd!==null){var d0=Math.sqrt(bd),lim=d0+Math.max(3,Math.round(100/mpp)),cnt={},top="",tn=0;
+   for(var y4=Math.max(0,Math.floor(cy-lim));y4<=Math.min(h-1,Math.ceil(cy+lim));y4++)for(var x4=Math.max(0,Math.floor(cx-lim));x4<=Math.min(w-1,Math.ceil(cx+lim));x4++){var j4=y4*w+x4;
+    if(!A[j4]||MX[j4]<150||(x4-cx)*(x4-cx)+(y4-cy)*(y4-cy)>lim*lim)continue;var t4=hsv(R[j4],G[j4],B[j4]);if(t4[1]<0.15)continue;
+    if(x4<1||y4<1||x4>w-2||y4>h-2)continue;var edge=false;for(var dy4=-1;dy4<=1&&!edge;dy4++)for(var dx4=-1;dx4<=1;dx4++){var jn=j4+dy4*w+dx4;if(A[jn]&&MX[jn]<=110){edge=true;break;}}if(edge)continue; /* พิกเซลติดเส้นดำ = สีเพี้ยน ไม่นับ */
+    var n4=colorName(R[j4],G[j4],B[j4]);cnt[n4]=(cnt[n4]||0)+1;if(cnt[n4]>tn){tn=cnt[n4];top=n4;}}
+   best=Math.round(d0*mpp);near=top;}}
+ return{rgb:c.map(Math.round),name:cname,dist:best,near:near,tol:tol};}
+function readColor(p,lat,lng){
+ var full=!!p.t,W=full?p.t.s[0]:p.wh[0],H=full?p.t.s[1]:p.wh[1];
+ var w0=p.b[0][1],e0=p.b[1][1],yn=mercY(p.b[1][0]),ys=mercY(p.b[0][0]);
+ var fx=Math.floor((lng-w0)/(e0-w0)*W),fy=Math.floor((yn-mercY(lat))/(yn-ys)*H);
+ if(fx<0||fy<0||fx>=W||fy>=H)return Promise.resolve(null);
+ var mpp=(e0-w0)*111320*Math.cos(lat*Math.PI/180)/W,tol=tolOf(p);
+ var half=Math.min(450,Math.ceil(Math.max(tol*1.6,350,60*mpp)/mpp));
+ var x0=Math.max(0,fx-half),y0=Math.max(0,fy-half),x1=Math.min(W,fx+half+1),y1=Math.min(H,fy+half+1),cw=x1-x0,chh=y1-y0;
+ var cv=document.createElement("canvas");cv.width=cw;cv.height=chh;var ctx=cv.getContext("2d",{willReadFrequently:true}),jobs=[];
+ function draw(o,dx,dy){ctx.drawImage(o.im,dx,dy);if(o.blob)URL.revokeObjectURL(o.blob);}
+ if(full){var n=p.t.n;p.t.k.forEach(function(k,i){var rc=k.split("_"),tx=+rc[1]*n,ty=+rc[0]*n;if(tx>=x1||ty>=y1||tx+n<=x0||ty+n<=y0)return;
+  jobs.push(loadImg("ภาพผัง/"+p.id+"/"+k+".webp",p.t.f?p.t.f[i]:null).then(function(o){draw(o,tx-x0,ty-y0);}));});}
+ else jobs.push(loadImg("ภาพผัง/"+p.id+".webp",p.f).then(function(o){draw(o,-x0,-y0);}));
+ return Promise.all(jobs).then(function(){var d;try{d=ctx.getImageData(0,0,cw,chh).data;}catch(e){throw new Error("taint");}
+  return analyse(d,cw,chh,fx-x0,fy-y0,mpp,tol);});}
+var colorTok=0,ADM=Z.adm||[],ORD=Z.ord||[];
+function admAt(x,y){for(var i=0;i<ADM.length;i++){var a=ADM[i];if(inB(a.b,x,y)&&inside(a.g,x,y))return a;}return null;}
+function admLabel(a){return a?(a.pv==="กรุงเทพมหานคร"?"เขต"+a.am+" กรุงเทพฯ":"อ."+a.am+" จ."+a.pv):"";}
+function ordBox(a){
+ if(!a||!a.o.length)return"";
+ var h='<div class="w">⚠️ <b>ข้อบัญญัติท้องถิ่นห้ามก่อสร้างฯ ใน'+esc(admLabel(a))+" ที่ยังไม่ประกาศเลิกใช้ "+a.o.length+" ฉบับ</b> ต้องตรวจว่าจุดอยู่ในเขตท้องถิ่นนั้น (เทศบาล/อบต.) และยังมีผลอยู่ไหม บางฉบับสิ้นผลเองเมื่อผังเมืองรวมประกาศใช้";
+ a.o.forEach(function(i){var o=ORD[i];h+='<div class="other"><div>'+esc(o.n)+"<small>ผลเทียบกับผัง (ข้อสังเกต): "+esc(o.r)+"</small></div>"+(o.u?'<a class="lnk" target="_blank" rel="noopener" href="'+esc(o.u)+'">PDF</a>':"")+"</div>";});
+ return h+"</div>";}
+function colorBox(z,err,sheets){
+ var h='<div class="cap">สีที่ดิน ณ จุดนี้ (อ่านจากภาพผังอัตโนมัติ ⚠️ ค่าประมาณ)</div>';
+ if(err)return h+(err.message==="taint"?"อ่านสีไม่ได้เมื่อเปิดจากไฟล์ในเครื่องโดยตรง ดูสีจากภาพที่ซ้อนอยู่แทน หรือเปิดชุดบนเว็บ":"อ่านสีไม่ได้ (โหลดภาพผังไม่สำเร็จ) ลองแตะจุดเดิมอีกครั้ง");
+ if(!z)return h+"จุดนี้อยู่นอกภาพผัง";
+ h+='<div class="zv"><span class="sw" style="background:rgb('+z.rgb.join(",")+')"></span><div><span class="zn">'+esc(z.name)+"</span><small>ความหมายที่พบบ่อย: "+esc(MEANING[z.name]||"-")+"</small></div></div>";
+ if(z.name==="ขาว")h+='<div class="w">⚠️ จุดตกบนพื้นขาว มักเป็นแนวถนน แหล่งน้ำ หรือพื้นที่ไม่กำหนดสี'+(z.near?" สีที่ติดใกล้สุดคือ"+esc(z.near)+" ห่างราว "+z.dist+" ม.":"")+" ดูภาพว่าแปลงอยู่ฝั่งไหน</div>";
+ else if(z.dist!==null&&z.dist<z.tol)h+='<div class="w">⚠️ ห่างพื้นที่สีอื่น ('+esc(z.near)+") ราว "+z.dist+" ม. น้อยกว่าระยะคลาดของแผนที่ ("+z.tol+" ม.) จุดนี้อาจอยู่อีกสีหนึ่ง ต้องเปิดตัวประกาศยืนยัน</div>";
+ else if(z.dist!==null)h+="<small>พื้นที่สีอื่นที่ใกล้สุด: "+esc(z.near)+" ห่างราว "+z.dist+" ม.</small>";
+ else h+="<small>ไม่พบพื้นที่สีอื่นในรัศมีที่ตรวจ</small>";
+ if(sheets.length)h+='<div class="w">⚠️ จุดอยู่ในกรอบแผ่นฉบับแก้ไข สีที่อ่านได้มาจากผังหลัก อาจเป็นสีเดิมก่อนแก้</div>';
+ return h+"<small>สีบอกได้แค่กลุ่มประเภท ต้องยืนยันกับสัญลักษณ์สีในภาพทั้งหน้า · เส้นแบ่งโซนย่อยที่สีเดียวกัน (เช่น พ.3 กับ พ.4) และเลขโซนอ่านจากสีไม่ได้</small>";}
+
+/* ---------- แผงข้อมูล ---------- */
+var pin=L.circleMarker([0,0],{radius:8,color:"#fff",weight:3,fillColor:"#e3002b",fillOpacity:1,interactive:false});
+function openPanel(title,html){$("pTitle").textContent=title;$("pBody").innerHTML=html;$("pBody").scrollTop=0;$("panel").classList.add("open");$("hint").style.display="none";}
+$("pClose").onclick=function(){$("panel").classList.remove("open");};
+function warnings(p,x,y){
+ var w=[];
+ if(x!=null){var d=edgeDist(p.e&&p.e!==1?p.e:p.g,x,y),lim=Math.max(100,3*p.px,2*p.err);
+  if(d<lim)w.push("จุดนี้ห่างแนวเขตผังราว "+Math.round(d/10)*10+" ม. ซึ่งอยู่ในระยะคลาดของแผนที่ ต้องเทียบกับแนวเขตในตัวประกาศ");}
+ if(p.note.indexOf("⚠️ อนุมาน")>=0)w.push("ตำแหน่งแผนที่ผังนี้ยังเป็นค่าประมาณ (ภาพหยาบ วัดกับถนนได้ไม่ชัด) จุดใกล้เส้นแบ่งสีต้องเปิดตัวประกาศ");
+ else if(p.px>=15)w.push("ภาพผังนี้หยาบ ("+p.px.toFixed(0)+" ม. ต่อจุดภาพ) จุดใกล้เส้นแบ่งสีต้องเปิดตัวประกาศ");
+ if(p.st.indexOf("มีฉบับใหม่กว่า")>=0)w.push("ผังนี้มีฉบับแก้ไขเพิ่มเติม ต้องตรวจว่าแก้ข้อกำหนดข้อใด");
+ if(p.miss)w.push("จังหวัดนี้ยังมีผังเมือง/ชุมชนที่ไม่มีแผนที่ในฐานข้อมูล (รหัส "+esc(p.miss)+") ถ้าจุดอยู่ในท้องที่นั้น ผังที่ใช้จริงอาจเป็นผังดังกล่าว");
+ if(p.rk===9)w.push("ผังฉบับเดิม ถูกแทนด้วยฉบับใหม่แล้ว แสดงไว้เพื่ออ้างอิงเท่านั้น");
+ return w.map(function(t){return'<div class="w">⚠️ '+esc(t)+"</div>";}).join("");}
+function card(p,x,y,main,role){
+ var pdf=p.pdf?encodeURI(p.pdf):p.url,h='<div class="card'+(main?" main":"")+'">';
+ if(main)h+='<div class="cap">ผังที่ใช้บังคับ ณ จุดนี้</div>';
+ h+='<div class="name">'+esc(p.n)+'</div><div class="tags"><span class="tag">'+esc(p.lv)+"</span>";
+ if(p.dt)h+='<span class="tag">ประกาศ '+thDate(p.dt)+"</span>";
+ h+=p.rk===9?'<span class="tag old">ฉบับเดิม</span>':role?'<span class="tag old">'+esc(role)+'</span>':'<span class="tag ok">ใช้บังคับ</span>';
+ h+='<span class="tag">'+esc(p.pv)+"</span></div>"+warnings(p,x,y)+'<div class="acts">';
+ if(pdf)h+='<a class="pri" target="_blank" rel="noopener" href="'+esc(pdf)+'">เปิดตัวประกาศ (PDF)</a>';
+ if(p.pf)h+='<button data-page="'+p.id+'">ภาพทั้งหน้า + สัญลักษณ์สี</button>';
+ else if(p.page)h+='<a target="_blank" rel="noopener" href="'+esc(encodeURI(p.page))+'">ภาพทั้งหน้า + สัญลักษณ์สี</a>';
+ h+='<button data-zoom="'+p.id+'">ซูมไปที่ผัง</button>';
+ if(p.rk===9)h+='<button data-pin="'+p.id+'">'+(pinned[p.id]?"ซ่อนภาพผังนี้":"ซ้อนภาพผังนี้")+"</button>";
+ h+="</div><details><summary>รายละเอียดแผนที่</summary><p>ความละเอียดภาพ "+p.px+" ม. ต่อจุดภาพ · คลาดจากขีดพิกัดสูงสุด "+p.err+" ม. · เนื้อที่ราว "+p.km2.toLocaleString()+" ตร.กม. · รหัสในทะเบียน "+esc(p.asa)+"</p><p>"+esc(p.note)+"</p>"+(p.txt?"<p>โน้ตตัวบทในคลังความรู้: "+esc(p.txt)+"</p>":"")+"</details></div>";
+ return h;}
+function sheetCards(sheets){
+ return sheets.map(function(a){return'<div class="w">⚠️ จุดนี้อยู่ในกรอบแผ่นฉบับแก้ไข: <b>'+esc(a.n)+"</b>"+(a.area?" ("+esc(a.area)+")":"")+" สีในผังหลักอาจเป็นสีเดิม ต้องดูแผ่นแก้ไขประกอบ"+(a.txt?"<br>"+esc(a.txt):"")+'<div class="acts"><button data-pin="'+a.id+'">'+(pinned[a.id]?"ซ่อนแผ่นแก้ไข":"ซ้อนแผ่นแก้ไขบนแผนที่")+"</button></div></div>";}).join("");}
+var last=null;
+function ensureVisible(lat,lng){ /* อย่าให้แผงข้อมูลบังหมุด */
+ var pt=map.latLngToContainerPoint([lat,lng]),sz=map.getSize(),pn=$("panel"),dx=0,dy=0;
+ if(window.matchMedia("(max-width:760px)").matches){var lim=sz.y-pn.offsetHeight-30;if(pt.y>lim)dy=pt.y-Math.max(90,lim/2+30);}
+ else{var limx=sz.x-pn.offsetWidth-40;if(pt.x>limx)dx=pt.x-limx/2;}
+ if(dx||dy)map.panBy([dx,dy],{animate:false});}
+function inspect(lat,lng,fly){
+ last=[lat,lng];focus=null;pin.setLatLng([lat,lng]).addTo(map);
+ if(fly)map.setView([lat,lng],Math.max(map.getZoom(),15));
+ var r=lookup(lng,lat),c=lat.toFixed(5)+", "+lng.toFixed(5);
+ var ad=admAt(lng,lat);
+ var h='<div class="coord"><span>พิกัด '+c+(ad?" · "+esc(admLabel(ad)):"")+'</span><a class="lnk" data-copy="'+c+'">คัดลอก</a><a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+lat.toFixed(6)+","+lng.toFixed(6)+'">เปิดใน Google Maps</a></div>';
+ if(r.hit){var rest=r.cover.filter(function(p){return p!==r.hit;}),same=rest.filter(function(p){return p.rk===r.hit.rk;});
+  h+=card(r.hit,lng,lat,true)+'<div class="zc" id="zc"><div class="cap">สีที่ดิน ณ จุดนี้</div>กำลังอ่านสีจากภาพผัง...</div>';
+  if(same.length)h+='<div class="w">⚠️ จุดนี้มีผังระดับเดียวกันครอบซ้อนอีกฉบับ ('+same.map(function(p){return esc(p.n);}).join(", ")+') ระบบเลือกฉบับที่ประกาศใหม่กว่าตามหลักทั่วไป ต้องเปิดตัวประกาศทั้งสองฉบับยืนยัน</div>';
+  h+=sheetCards(r.sheets);hi.setLatLngs(ll(r.hit.g)).addTo(map);
+  if(rest.length){h+="<h3>ผังอื่นที่ครอบจุดนี้ (ไม่ได้ใช้บังคับ ณ จุดนี้ หรือเป็นฉบับเดิม)</h3>";rest.forEach(function(p){h+=card(p,null,null,false,p.rk>r.hit.rk?"ไม่ใช้ ณ จุดนี้ (มีผังลำดับก่อนครอบ)":"ไม่ใช้ ณ จุดนี้ (มีฉบับใหม่กว่าครอบ)");});}
+ }else{map.removeLayer(hi);h+='<div class="card"><div class="name">ไม่พบผังที่ครอบจุดนี้</div><p style="margin:0;line-height:1.6">จุดอาจอยู่นอกแนวเขตผังทุกฉบับในฐานข้อมูล (เช่น ในทะเล หรือพื้นที่ที่แผนที่ผังเว้นขาวไว้) ไม่ได้แปลว่าไม่มีข้อกำหนด ควรตรวจกับตัวประกาศของจังหวัดนั้น</p></div>'+sheetCards(r.sheets);}
+ h+=ordBox(ad);
+ h+='<div class="foot">ไม่ใช่ข้อมูลทางราชการ ใช้อ้างอิงประกอบการตรวจเท่านั้น สีและแนวเขตมาจากภาพแผนที่ท้ายประกาศที่นำมาวางพิกัดเอง ในรายงานต้องอ้างตัวประกาศ และยังต้องตรวจข้อกำหนดอื่นที่ซ้อนทับ (กฎหมายควบคุมอาคาร เขตคุ้มครองสิ่งแวดล้อม)<br>ข้อมูล ณ '+thDate(Z.built)+" · "+P.length+" ผัง</div>";
+ openPanel("ผลตรวจ ณ จุดที่เลือก",h);ensureVisible(lat,lng);
+ if(r.hit){var tok=++colorTok,sh=r.sheets;readColor(r.hit,lat,lng).then(function(z){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(z,null,sh);},
+  function(e){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(null,e,sh);});}
+ try{history.replaceState(null,"","#"+lat.toFixed(5)+","+lng.toFixed(5)+","+map.getZoom());}catch(e){}}
+function fitTo(p){ /* ซูมให้เห็นทั้งผัง โดยเว้นที่ให้แผงข้อมูล */
+ var b=p._line?p._line.getBounds():L.latLngBounds(p.b),pn=$("panel"),open=pn.classList.contains("open"),mob=window.matchMedia("(max-width:760px)").matches;
+ map.fitBounds(b,{paddingTopLeft:[30,70],paddingBottomRight:open?(mob?[30,pn.offsetHeight+20]:[pn.offsetWidth+40,30]):[30,30]});}
+function showPlan(p){
+ hi.setLatLngs(ll(p.g)).addTo(map);map.removeLayer(pin);last=null;focus=p.id;
+ openPanel("รายละเอียดผัง",card(p,null,null,false)+'<div class="foot">แตะบนแผนที่เพื่อดูว่าจุดนั้นอยู่ผังไหน</div>');fitTo(p);refresh();}
+map.on("click",function(e){inspect(e.latlng.lat,e.latlng.lng,false);});
+$("pBody").addEventListener("click",function(e){
+ var t=e.target,d=t.dataset||{};
+ if(d.zoom){fitTo(byId[d.zoom]);}
+ else if(d.pin){if(pinned[d.pin])delete pinned[d.pin];else pinned[d.pin]=1;refresh();if(pinned[d.pin])fitTo(byId[d.pin]);t.textContent=pinned[d.pin]?"ซ่อนภาพนี้":"ซ้อนภาพนี้บนแผนที่";}
+ else if(d.copy){var done=function(){t.textContent="คัดลอกแล้ว";setTimeout(function(){t.textContent="คัดลอก";},1500);};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(d.copy).then(done,function(){prompt("คัดลอกพิกัด",d.copy);});else prompt("คัดลอกพิกัด",d.copy);}
+ else if(d.plan){showPlan(byId[d.plan]);}
+ else if(d.page){openViewer(byId[d.page]);}});
+var vUrl=null;
+function closeViewer(){$("viewer").hidden=true;$("vBody").innerHTML="";if(vUrl){URL.revokeObjectURL(vUrl);vUrl=null;}}
+function openViewer(p){
+ closeViewer();$("vTitle").textContent=p.n;$("vBody").innerHTML='<div class="vmsg">กำลังโหลดภาพ...</div>';$("viewer").hidden=false;
+ fetchDec("f/"+p.pf+".bin").then(function(buf){
+  if($("viewer").hidden)return;vUrl=URL.createObjectURL(new Blob([buf],{type:"image/jpeg"}));
+  $("vBody").innerHTML='<img id="vImg" alt="">';var im=$("vImg");im.src=vUrl;im.onclick=function(){im.classList.toggle("big");};
+ },function(){$("vBody").innerHTML='<div class="vmsg">โหลดภาพไม่ได้ ลองใหม่อีกครั้ง</div>';});}
+$("vClose").onclick=closeViewer;
+
+/* ---------- ค้นหา ---------- */
+function parseCoord(s){
+ var m=/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/.exec(s)||/@(-?\d+\.\d+),(-?\d+\.\d+)/.exec(s)||/[?&](?:q|ll|query)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)/.exec(s)||/(-?\d{1,3}\.\d+)\s*[°]?\s*[NnEe]?\s*[,;\s]\s*(-?\d{1,3}\.\d+)/.exec(s);
+ if(!m)return null;var a=+m[1],b=+m[2];if(a>90&&b<=90){var t=a;a=b;b=t;}
+ return a>=4&&a<=22&&b>=96&&b<=107?[a,b]:null;}
+var q=$("q"),sug=$("sug"),sugList=[];
+function suggest(){
+ var s=q.value.trim();if(!s||parseCoord(s)){sug.style.display="none";return;}
+ var tk=s.toLowerCase().split(/\s+/);
+ sugList=P.filter(function(p){var hay=(p.n+" "+p.pv+" "+p.asa).toLowerCase();return tk.every(function(t){return hay.indexOf(t)>=0;});}).sort(function(a,b){return a.rk-b.rk;}).slice(0,25);
+ sug.innerHTML=sugList.length?sugList.map(function(p,i){return'<div data-i="'+i+'">'+esc(p.n)+"<small>"+esc(p.pv)+" · "+esc(p.lv)+(p.rk===9?" · ฉบับเดิม":"")+"</small></div>";}).join(""):'<div style="cursor:default;color:#5d6878">ไม่พบผังที่ชื่อตรงกับคำค้น</div>';
+ sug.style.display="block";}
+q.addEventListener("input",suggest);q.addEventListener("focus",suggest);
+q.addEventListener("keydown",function(e){if(e.key!=="Enter")return;var c=parseCoord(q.value);
+ if(c){sug.style.display="none";q.blur();inspect(c[0],c[1],true);}else if(sugList.length){sug.style.display="none";q.blur();showPlan(sugList[0]);}});
+sug.addEventListener("click",function(e){var d=e.target.closest("[data-i]");if(!d)return;sug.style.display="none";showPlan(sugList[+d.dataset.i]);});
+document.addEventListener("click",function(e){if(!e.target.closest(".search"))sug.style.display="none";});
+
+/* ---------- รายชื่อผัง / ตำแหน่งของฉัน / ตั้งค่า ---------- */
+$("bList").onclick=function(){
+ var g={};P.forEach(function(p){(g[p.pv]=g[p.pv]||[]).push(p);});
+ var h='<div class="foot" style="margin:0 0 8px">'+P.length+" ผัง ใน "+Object.keys(g).length+" กลุ่มจังหวัด เลือกผังเพื่อซูมไปดู</div>";
+ Object.keys(g).sort(function(a,b){return a.localeCompare(b,"th");}).forEach(function(pv){
+  h+='<details class="prov"><summary>'+esc(pv)+" ("+g[pv].length+")</summary>"+g[pv].sort(function(a,b){return a.rk-b.rk||a.n.localeCompare(b.n,"th");}).map(function(p){return'<div class="it" data-plan="'+p.id+'">'+esc(p.n)+(p.rk===9?" <small>(ฉบับเดิม)</small>":"")+"</div>";}).join("")+"</details>";});
+ openPanel("รายชื่อผังทั้งหมด",h);};
+$("bLoc").onclick=function(){
+ if(!navigator.geolocation){alert("เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง");return;}
+ navigator.geolocation.getCurrentPosition(function(p){inspect(p.coords.latitude,p.coords.longitude,true);},function(){alert("หาตำแหน่งไม่ได้ (เบราว์เซอร์ไม่อนุญาต หรือเปิดจากไฟล์ในเครื่อง) ให้วางพิกัดในช่องค้นหาแทน");},{enableHighAccuracy:true,timeout:15000});};
+$("bCtl").onclick=function(){$("ctl").classList.toggle("open");};
+
+/* ---------- เปิดจากลิงก์ที่มีพิกัด ---------- */
+var c0=parseCoord(decodeURIComponent(location.search||""));
+var hm=/^#(-?\d+\.\d+),(-?\d+\.\d+)(?:,(\d+))?/.exec(location.hash||"");
+if(c0){inspect(c0[0],c0[1],true);}
+else if(hm){map.setView([+hm[1],+hm[2]],+hm[3]||15);inspect(+hm[1],+hm[2],false);}
+if(LOCK){var bl=document.createElement("button");bl.className="btn";bl.style.cssText="margin-top:8px;width:100%;height:36px;font-size:13px";
+ bl.textContent="ล็อก (ลืมรหัสบนเครื่องนี้)";bl.onclick=function(){forget();location.reload();};document.querySelector("#ctl .in").appendChild(bl);}
+refresh();
+}
+boot();
+})();
+</script>
+</body>
+</html>
