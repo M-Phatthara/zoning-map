@@ -72,6 +72,21 @@ h3{font-size:13.5px;margin:14px 0 4px;color:var(--mute)}
 .zc .sw{flex:none;width:30px;height:30px;border-radius:6px;border:1px solid rgba(0,0,0,.25)}
 .zc .zn{font-size:16px;font-weight:700}
 .zc small{color:var(--mute);display:block}
+.zr{border:1px solid var(--soft);border-radius:10px;padding:10px 12px;margin:0 0 10px;background:#fff;font-size:14px;line-height:1.55}
+.zr details{margin-top:6px}
+.zr details.rt{border:1px solid var(--soft);border-radius:8px;padding:6px 10px;background:#fafcfe}
+.zr details.rt>summary{color:inherit;font-size:14.5px}
+.zr summary small{display:block;color:var(--mute);font-size:12.5px;margin-left:16px}
+.zr .rs{font-size:12.5px;color:var(--mute);margin:6px 0;word-break:break-word}
+.zr .rs.ok{color:#1a7f37}
+.zr .rs.chk{color:var(--warn)}
+.zr .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.zr .chip{background:#eef4fb;border-radius:999px;padding:2px 10px;font-size:13px}
+.zr .rh{font-weight:700;margin:8px 0 2px}
+.zr ol,.zr ul{margin:4px 0;padding-left:22px}
+.zr li{margin:3px 0;word-break:break-word}
+.zr li small{color:var(--mute)}
+.zr p{margin:6px 0;white-space:normal}
 #lock{position:fixed;inset:0;z-index:3000;background:#eef2f6;display:flex;align-items:center;justify-content:center;padding:16px}
 #lock[hidden],#viewer[hidden]{display:none}
 #lock form{background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.15);padding:24px 22px;width:100%;max-width:360px}
@@ -388,6 +403,48 @@ function colorBox(z,err,sheets){
  if(sheets.length)h+='<div class="w">⚠️ จุดอยู่ในกรอบแผ่นฉบับแก้ไข สีที่อ่านได้มาจากผังหลัก อาจเป็นสีเดิมก่อนแก้</div>';
  return h+"<small>สีบอกได้แค่กลุ่มประเภท ต้องยืนยันกับสัญลักษณ์สีในภาพทั้งหน้า · เส้นแบ่งโซนย่อยที่สีเดียวกัน (เช่น พ.3 กับ พ.4) และเลขโซนอ่านจากสีไม่ได้</small>";}
 
+/* ---------- ข้อกำหนดรายประเภทที่ดิน (ไฟล์รายผัง โหลดเมื่อแตะจุด · สกัดอัตโนมัติจากตัวประกาศ = ข้อมูลอ้างอิง) ---------- */
+var RULES={};
+function loadRules(p){
+ if(!p.rl)return Promise.resolve(null);
+ if(RULES[p.id])return Promise.resolve(RULES[p.id]);
+ if(KEY)return fetchDec("f/"+p.rf+".bin").then(function(b){return RULES[p.id]=JSON.parse(new TextDecoder().decode(b));});
+ return new Promise(function(res,rej){var s=document.createElement("script");s.src=encodeURI("ข้อมูล/ข้อกำหนด/"+p.id+".js");
+  s.onload=function(){RULES[p.id]=(window.ZRULES||{})[p.id]||null;res(RULES[p.id]);};s.onerror=function(){rej(new Error("rules"));};document.head.appendChild(s);});}
+function pgLinks(p,pg){var u=p.pdf?encodeURI(p.pdf):p.url;return pg.map(function(n){return u?'<a class="lnk" target="_blank" rel="noopener" href="'+esc(u)+"#page="+n+'">'+n+"</a>":String(n);}).join(", ");}
+function lis(a){return a.map(function(t){return"<li>"+esc(t)+"</li>";}).join("");}
+function ruleType(t,p,open){
+ var ok=t.st.charAt(0)==="✅"&&!t.chk.length,c=[];
+ var h='<details class="rt"'+(open?" open":"")+"><summary><b>"+esc(t.t||"(ไม่มีชื่อประเภท)")+"</b>"+(t.c?" ("+esc(t.c)+")":"")+"<small>"+esc(t.col||"ไม่ระบุสี")+(t.a?" · บริเวณ "+esc(t.a):"")+"</small></summary>";
+ h+='<div class="rs '+(ok?"ok":"chk")+'">'+esc(t.st)+(t.k?" · ข้อ "+esc(t.k):"")+(t.pg.length?" · หน้า PDF "+pgLinks(p,t.pg):"")+"</div>";
+ t.chk.forEach(function(x){h+='<div class="w">⚠️ ต้องตรวจ: '+esc(x)+"</div>";});
+ t.by.forEach(function(x){h+='<div class="rs">รวมฉบับแก้ไขแล้ว: '+esc(x)+"</div>";});
+ if(t.far.length)c.push("FAR "+t.far.join(" / "));if(t.osr.length)c.push("OSR "+t.osr.join(" / "));if(t.bcr.length)c.push("BCR "+t.bcr.join(" / "));
+ if(t.pct!=null)c.push("กิจการอื่นไม่เกินร้อยละ "+t.pct);if(t.os.length)c.push("ที่ว่างร้อยละ "+t.os.join(" / "));
+ if(c.length)h+='<div class="chips">'+c.map(function(x){return'<span class="chip">'+esc(x)+"</span>";}).join("")+"</div>";
+ if(t.use)h+="<p>"+esc(t.use)+"</p>";
+ if(t.no.length)h+='<div class="rh">ห้ามใช้เพื่อกิจการ ('+t.no.length+" รายการ)</div><ol>"+lis(t.no)+"</ol>";
+ if(t.only.length)h+='<div class="rh">ใช้ได้เฉพาะ</div><ol>'+lis(t.only)+"</ol>";
+ if(t.nt.length)h+='<div class="rh">เงื่อนไขและหมายเหตุ (อ่านคู่กับรายการห้ามเสมอ)</div><ul>'+t.nt.map(function(x){var k=[];if(x[1]&2)k.push("ระยะถอย");if(x[1]&4)k.push("ความสูง/ขนาด");return"<li>"+esc(x[0])+(k.length?" <small>["+k.join(", ")+"]</small>":"")+"</li>";}).join("")+"</ul>";
+ if(t.ob.length)h+='<div class="rs">ข้อสังเกตของตัวสกัด: '+esc(t.ob.join(" · "))+"</div>";
+ return h+"</details>";}
+function ruleBox(p,R,z,err){
+ var h='<div class="cap">ข้อกำหนดการใช้ที่ดิน (สกัดจากตัวประกาศอัตโนมัติ ⚠️ ข้อมูลอ้างอิง)</div>';
+ if(err||!R)return h+"โหลดตารางข้อกำหนดของผังนี้ไม่สำเร็จ ลองแตะจุดเดิมอีกครั้ง หรือเปิดตัวประกาศ (PDF)";
+ if(R.st.charAt(0)==="❌")h+='<div class="w">'+esc(R.st)+"<br><b>ตารางของผังนี้ยังเชื่อไม่ได้ ให้เปิดตัวประกาศ (PDF) อ่านเอง</b></div>";
+ else if(R.st.charAt(0)!=="✅")h+='<div class="w">วิธีอ่านตัวประกาศผังนี้: '+esc(R.st)+" ข้อความอาจเพี้ยนบางคำ ต้องเทียบกับตัวประกาศ</div>";
+ R.am.forEach(function(a){h+='<div class="w">⚠️ มีฉบับแก้ไข: '+esc(a.f)+(a.done.length?"<br>รวมในตารางแล้ว: "+esc(a.done.join(", ")):"")+(a.todo.length?"<br>ยังไม่รวม ต้องอ่านคู่กัน "+a.todo.length+" จุด":(a.done.length?"":"<br>ยังไม่รวมในตาราง ต้องอ่านคู่กัน"))+"</div>";});
+ var white=!!z&&z.name==="ขาว",name=z?(white?z.near:z.name):null,m=name?R.z.filter(function(t){return t.g===name;}):[],rest=R.z.filter(function(t){return m.indexOf(t)<0;});
+ if(white)h+="<p>จุดอยู่บนพื้นขาว"+(m.length?" แสดงข้อกำหนดของสีที่ติดใกล้สุด ("+esc(name)+") ต้องดูภาพว่าแปลงอยู่ในสีนั้นจริงไหม":"")+"</p>";
+ if(m.length){
+  h+="<p><b>สี"+esc(name)+"ในผังนี้มี "+m.length+" ประเภท</b>"+(m.length>1?" ระบบไม่เลือกให้ ให้เทียบชื่อประเภทและหมายเลขบริเวณกับภาพทั้งหน้า":"")+"</p>";
+  m.forEach(function(t){h+=ruleType(t,p,m.length===1);});
+ }else if(name)h+='<div class="w">⚠️ ไม่พบประเภทที่ใช้สี'+esc(name)+"ในตารางของผังนี้ สีที่อ่านได้อาจคลาด เลือกจากรายการทุกประเภทด้านล่าง</div>";
+ else h+="<p>อ่านสี ณ จุดนี้ไม่ได้ เลือกประเภทจากรายการด้านล่างโดยดูสีจากภาพผัง</p>";
+ if(rest.length)h+='<details class="rall"><summary>'+(m.length?"ประเภทอื่นในผังนี้":"ทุกประเภทในผังนี้")+" ("+rest.length+")</summary>"+rest.map(function(t){return ruleType(t,p,false);}).join("")+"</details>";
+ if(R.cut.length)h+='<div class="rs">ประเภทที่ฉบับแก้ไขยกเลิกแล้ว: '+esc(R.cut.join(" · "))+"</div>";
+ return h+'<div class="rs">ตารางนี้สกัดจากไฟล์ '+esc(R.file)+" ใช้ค้นและอ่านเร็วเท่านั้น ในเล่มประเมินต้องอ้างตัวประกาศ</div>";}
+
 /* ---------- แผงข้อมูล ---------- */
 var pin=L.circleMarker([0,0],{radius:8,color:"#fff",weight:3,fillColor:"#e3002b",fillOpacity:1,interactive:false});
 function openPanel(title,html){$("pTitle").textContent=title;$("pBody").innerHTML=html;$("pBody").scrollTop=0;$("panel").classList.add("open");$("hint").style.display="none";}
@@ -431,7 +488,7 @@ function inspect(lat,lng,fly){
  var ad=admAt(lng,lat);
  var h='<div class="coord"><span>พิกัด '+c+(ad?" · "+esc(admLabel(ad)):"")+'</span><a class="lnk" data-copy="'+c+'">คัดลอก</a><a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+lat.toFixed(6)+","+lng.toFixed(6)+'">เปิดใน Google Maps</a></div>';
  if(r.hit){var rest=r.cover.filter(function(p){return p!==r.hit;}),same=rest.filter(function(p){return p.rk===r.hit.rk;});
-  h+=card(r.hit,lng,lat,true)+'<div class="zc" id="zc"><div class="cap">สีที่ดิน ณ จุดนี้</div>กำลังอ่านสีจากภาพผัง...</div>';
+  h+=card(r.hit,lng,lat,true)+'<div class="zc" id="zc"><div class="cap">สีที่ดิน ณ จุดนี้</div>กำลังอ่านสีจากภาพผัง...</div>'+(r.hit.rl?'<div class="zr" id="zr"><div class="cap">ข้อกำหนดการใช้ที่ดิน</div>กำลังโหลดข้อกำหนด...</div>':"");
   if(same.length)h+='<div class="w">⚠️ จุดนี้มีผังระดับเดียวกันครอบซ้อนอีกฉบับ ('+same.map(function(p){return esc(p.n);}).join(", ")+') ระบบเลือกฉบับที่ประกาศใหม่กว่าตามหลักทั่วไป ต้องเปิดตัวประกาศทั้งสองฉบับยืนยัน</div>';
   h+=sheetCards(r.sheets);hi.setLatLngs(ll(r.hit.g)).addTo(map);
   if(rest.length){h+="<h3>ผังอื่นที่ครอบจุดนี้ (ไม่ได้ใช้บังคับ ณ จุดนี้ หรือเป็นฉบับเดิม)</h3>";rest.forEach(function(p){h+=card(p,null,null,false,p.rk>r.hit.rk?"ไม่ใช้ ณ จุดนี้ (มีผังลำดับก่อนครอบ)":"ไม่ใช้ ณ จุดนี้ (มีฉบับใหม่กว่าครอบ)");});}
@@ -439,8 +496,10 @@ function inspect(lat,lng,fly){
  h+=ordBox(ad);
  h+='<div class="foot">ไม่ใช่ข้อมูลทางราชการ ใช้อ้างอิงประกอบการตรวจเท่านั้น สีและแนวเขตมาจากภาพแผนที่ท้ายประกาศที่นำมาวางพิกัดเอง ในรายงานต้องอ้างตัวประกาศ และยังต้องตรวจข้อกำหนดอื่นที่ซ้อนทับ (กฎหมายควบคุมอาคาร เขตคุ้มครองสิ่งแวดล้อม)<br>ข้อมูล ณ '+thDate(Z.built)+" · "+P.length+" ผัง</div>";
  openPanel("ผลตรวจ ณ จุดที่เลือก",h);ensureVisible(lat,lng);
- if(r.hit){var tok=++colorTok,sh=r.sheets;readColor(r.hit,lat,lng).then(function(z){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(z,null,sh);},
-  function(e){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(null,e,sh);});}
+ if(r.hit){var tok=++colorTok,sh=r.sheets;var hp=r.hit,cz=readColor(hp,lat,lng).then(function(z){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(z,null,sh);return z;},
+  function(e){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(null,e,sh);return null;});
+  if(hp.rl)Promise.all([cz,loadRules(hp)]).then(function(a){if(tok===colorTok&&$("zr"))$("zr").innerHTML=ruleBox(hp,a[1],a[0]);},
+   function(){if(tok===colorTok&&$("zr"))$("zr").innerHTML=ruleBox(hp,null,null,1);});}
  try{history.replaceState(null,"","#"+lat.toFixed(5)+","+lng.toFixed(5)+","+map.getZoom());}catch(e){}}
 function fitTo(p){ /* ซูมให้เห็นทั้งผัง โดยเว้นที่ให้แผงข้อมูล */
  var b=p._line?p._line.getBounds():L.latLngBounds(p.b),pn=$("panel"),open=pn.classList.contains("open"),mob=window.matchMedia("(max-width:760px)").matches;
