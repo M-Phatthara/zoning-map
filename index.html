@@ -137,6 +137,9 @@ h3{font-size:13.5px;margin:14px 0 4px;color:var(--mute)}
     <div class="lg"><i style="border-color:#e07b00"></i>แผนผัง EEC</div>
     <div class="lg"><i style="border-color:#1f4fbf;border-top-style:dashed"></i>ผังจังหวัด</div>
     <div class="lg"><i style="border-color:#777;border-top-style:dotted"></i>ฉบับเดิม (ถูกแทนแล้ว)</div>
+    <label id="lCoast" hidden><input type="checkbox" id="cCoast"> ชั้นริมทะเล</label>
+    <div class="lg" id="lgCoast" hidden><i style="border-color:#c0392b;border-top-width:6px"></i>กฎกระทรวงห้ามก่อสร้าง (แนวระยะจากชายฝั่ง)</div>
+    <div class="lg" id="lgEnv" hidden><i style="border-color:#1f6fb4;border-top-width:6px"></i>เขตคุ้มครองสิ่งแวดล้อม (ประกาศ ทส.)</div>
   </div>
 </div>
 <div class="hint" id="hint">แตะบนแผนที่เพื่อดูว่าจุดนั้นอยู่ผังไหน</div>
@@ -445,6 +448,58 @@ function ruleBox(p,R,z,err){
  if(R.cut.length)h+='<div class="rs">ประเภทที่ฉบับแก้ไขยกเลิกแล้ว: '+esc(R.cut.join(" · "))+"</div>";
  return h+'<div class="rs">ตารางนี้สกัดจากไฟล์ '+esc(R.file)+" ใช้ค้นและอ่านเร็วเท่านั้น ในเล่มประเมินต้องอ้างตัวประกาศ</div>";}
 
+/* ---------- ชั้นริมทะเล (coast/build_coast_layer.py · โหลดเมื่อเปิดชั้นหรือแตะจุด · ข้อมูลอ้างอิง) ---------- */
+var COAST=null,coastLayer=null,coastR=L.canvas({pane:"lines"});
+function loadCoast(){
+ if(!Z.coast)return Promise.resolve(null);
+ if(COAST)return Promise.resolve(COAST);
+ if(KEY){if(!Z.cf)return Promise.resolve(null);return fetchDec("f/"+Z.cf+".bin").then(function(b){return COAST=JSON.parse(new TextDecoder().decode(b));});}
+ return new Promise(function(res,rej){var s=document.createElement("script");s.src=encodeURI("ข้อมูล/ริมทะเล.js");
+  s.onload=function(){COAST=window.ZCOAST||null;res(COAST);};s.onerror=function(){rej(new Error("coast"));};document.head.appendChild(s);});}
+function isEnv(C,f){return C.docs[f.d].t.indexOf("ทส.")>=0;}
+function coastStyle(C,f){var col=isEnv(C,f)?"#1f6fb4":"#c0392b",op=f.a==null?0.16:(f.b<=50?0.45:f.b<=200?0.3:0.18);
+ return{color:col,weight:0.6,fillColor:col,fillOpacity:op,renderer:coastR,interactive:false};}
+if(Z.coast){$("lCoast").hidden=false;}
+$("cCoast").onchange=function(){var on=this.checked;$("lgCoast").hidden=$("lgEnv").hidden=!on;
+ if(!on){if(coastLayer)map.removeLayer(coastLayer);return;}
+ loadCoast().then(function(C){if(!C)return;if(!coastLayer){coastLayer=L.layerGroup();
+  C.f.forEach(function(f){if(f.z.indexOf(" แถบ ")<0)L.polygon(ll(f.g),coastStyle(C,f)).addTo(coastLayer);});}
+  coastLayer.addTo(map);});};
+function distCoast(C,x,y){ /* ระยะถึงแนวชายฝั่ง OSM ที่ใกล้สุด (เมตร โดยประมาณ) · ตรวจเฉพาะชิ้นที่อยู่ใกล้ */
+ var best=1e9,kx=111320*Math.cos(y*Math.PI/180),ky=110540,pad=0.03;
+ C.cl.forEach(function(c){if(y<c.b[0][0]-pad||y>c.b[1][0]+pad||x<c.b[0][1]-pad||x>c.b[1][1]+pad)return;
+  var l=c.l;for(var i=0;i<l.length-1;i++){var ax=(l[i][0]-x)*kx,ay=(l[i][1]-y)*ky,dx=(l[i+1][0]-l[i][0])*kx,dy=(l[i+1][1]-l[i][1])*ky,q=dx*dx+dy*dy,t=q?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/q)):0,px=ax+t*dx,py=ay+t*dy,d=Math.sqrt(px*px+py*py);if(d<best)best=d;}});
+ return best;}
+function coastZone(doc,name){var z=doc.zs.filter(function(s){return s.z===name;})[0];if(z)return z;
+ return doc.zs.filter(function(s){return name.indexOf(s.z)===0&&!/[0-9]/.test(name.charAt(s.z.length));})[0]||null;}
+function coastDoc(C,id,hits,inAm){
+ var d=C.docs[id],u=d.u?encodeURI(d.u):"",h='<details class="rt" open><summary><b>'+esc(d.t)+"</b><small>"+esc(d.n)+"</small></summary>";
+ if(d.st)h+='<div class="rs">'+esc(d.st)+"</div>";
+ if(u)h+='<div class="acts"><a class="pri" target="_blank" rel="noopener" href="'+esc(u)+'">เปิดตัวบท (PDF)</a></div>';
+ if(hits.length){hits.forEach(function(f){var z=coastZone(d,f.z);
+   h+='<div class="rh">จุดนี้อยู่ใน '+esc(f.z)+(f.a!=null?" (ระยะ "+f.a+"-"+f.b+" ม. จากแนวชายฝั่ง)":"")+"</div>";
+   if(z){if(z.def)h+="<p>"+esc(z.def)+"</p>";if(z.r.length)h+="<ul>"+lis(z.r)+"</ul>";
+    if(z.k||z.pg)h+='<div class="rs">'+esc(z.k||"")+(z.pg&&u?' · หน้า PDF <a class="lnk" target="_blank" rel="noopener" href="'+esc(u)+"#page="+z.pg+'">'+z.pg+"</a>":"")+"</div>";}
+   if(f.fit)h+='<div class="rs">ที่มาแนวเขต: '+esc(f.fit)+"</div>";});}
+ else if(inAm){var nz=d.zs.filter(function(z){return!z.geo;});
+  h+='<div class="w">⚠️ จุดนี้อยู่ในอำเภอที่ประกาศนี้ครอบคลุม แต่ไม่ตกในแนวที่วาดบนแผนที่'+(nz.length?" บริเวณที่ยังไม่ได้วาด (กำหนดด้วยแผนที่ท้าย/แนวถนน/ความสูง/ตำบล) ต้องเปิดแผนที่ท้ายประกาศตรวจเอง":"")+"</div>";
+  if(nz.length)h+='<details><summary>บริเวณในประกาศนี้ ('+d.zs.length+")</summary>"+d.zs.map(function(z){return"<p><b>"+esc(z.z)+"</b> "+esc(z.def||"")+"</p>"+(z.r.length?"<ul>"+lis(z.r)+"</ul>":"");}).join("")+"</details>";}
+ if(d.gen.length)h+='<details><summary>ข้อทั่วไป ('+d.gen.length+")</summary><ul>"+lis(d.gen)+"</ul></details>";
+ if(d.w.length)h+='<details><summary>ต้องตรวจ ('+d.w.length+")</summary><ul>"+lis(d.w)+"</ul></details>";
+ return h+"</details>";}
+function coastBox(C,x,y,ad){
+ var h='<div class="cap">ข้อจำกัดริมทะเล (กฎกระทรวงห้ามก่อสร้าง + เขตคุ้มครองสิ่งแวดล้อม ⚠️ ข้อมูลอ้างอิง)</div>';
+ if(!C)return h+"โหลดชั้นริมทะเลไม่สำเร็จ ลองแตะจุดเดิมอีกครั้ง";
+ var dist=distCoast(C,x,y),hits={},order=[];
+ C.f.forEach(function(f){if(inB(f.bb,x,y)&&inside(f.g,x,y)){if(!hits[f.d]){hits[f.d]=[];order.push(f.d);}hits[f.d].push(f);}});
+ var amd=ad?(C.am[ad.pv+"|"+ad.am]||[]):[];amd.forEach(function(id){if(!hits[id]){hits[id]=[];order.push(id);}});
+ if(dist<5000)h+="<p>ห่างแนวชายฝั่ง (OSM) ราว <b>"+(dist<100?Math.round(dist):Math.round(dist/10)*10)+" ม.</b> <small>แนวชายฝั่ง OSM ไม่ใช่แนวน้ำทะเลขึ้นสูงสุดทางกฎหมาย คลาดได้หลายสิบเมตร</small></p>";
+ if(!order.length)return h+(dist<5000?"<p>ไม่พบกฎกระทรวงห้ามก่อสร้างริมทะเลหรือเขตคุ้มครองสิ่งแวดล้อมในฐานข้อมูลที่ครอบจุดนี้</p>":"<p>จุดนี้อยู่ห่างทะเล ไม่มีข้อมูลชั้นริมทะเล</p>");
+ if(order.some(function(id){return hits[id].some(function(f){return f.a!=null&&(Math.abs(dist-f.b)<40||(f.a>0&&Math.abs(dist-f.a)<40));});}))
+  h+='<div class="w">⚠️ จุดอยู่ใกล้เส้นแบ่งแนวระยะ (ภายใน ~40 ม.) แนวที่วาดคำนวณจากแนวชายฝั่ง OSM ต้องวัดจากแนวน้ำทะเลขึ้นสูงสุดจริงหรือแผนที่ท้ายประกาศ</div>';
+ order.forEach(function(id){h+=coastDoc(C,id,hits[id],amd.indexOf(id)>=0);});
+ return h+'<div class="rs">แนวระยะคำนวณจากแนวชายฝั่ง OpenStreetMap ภายในอำเภอที่ตัวบทระบุ · เขตคุ้มครองสิ่งแวดล้อมบางฉบับวาดจากแผนที่ท้ายประกาศ (มาตราส่วนเล็ก) · ในรายงานต้องอ้างตัวบทและแผนที่ท้ายประกาศ</div>';}
+
 /* ---------- แผงข้อมูล ---------- */
 var pin=L.circleMarker([0,0],{radius:8,color:"#fff",weight:3,fillColor:"#e3002b",fillOpacity:1,interactive:false});
 function openPanel(title,html){$("pTitle").textContent=title;$("pBody").innerHTML=html;$("pBody").scrollTop=0;$("panel").classList.add("open");$("hint").style.display="none";}
@@ -494,8 +549,10 @@ function inspect(lat,lng,fly){
   if(rest.length){h+="<h3>ผังอื่นที่ครอบจุดนี้ (ไม่ได้ใช้บังคับ ณ จุดนี้ หรือเป็นฉบับเดิม)</h3>";rest.forEach(function(p){h+=card(p,null,null,false,p.rk>r.hit.rk?"ไม่ใช้ ณ จุดนี้ (มีผังลำดับก่อนครอบ)":"ไม่ใช้ ณ จุดนี้ (มีฉบับใหม่กว่าครอบ)");});}
  }else{map.removeLayer(hi);h+='<div class="card"><div class="name">ไม่พบผังที่ครอบจุดนี้</div><p style="margin:0;line-height:1.6">จุดอาจอยู่นอกแนวเขตผังทุกฉบับในฐานข้อมูล (เช่น ในทะเล หรือพื้นที่ที่แผนที่ผังเว้นขาวไว้) ไม่ได้แปลว่าไม่มีข้อกำหนด ควรตรวจกับตัวประกาศของจังหวัดนั้น</p></div>'+sheetCards(r.sheets);}
  h+=ordBox(ad);
+ if(Z.coast)h+='<div class="zr" id="cb"><div class="cap">ข้อจำกัดริมทะเล</div>กำลังโหลด...</div>';
  h+='<div class="foot">ไม่ใช่ข้อมูลทางราชการ ใช้อ้างอิงประกอบการตรวจเท่านั้น สีและแนวเขตมาจากภาพแผนที่ท้ายประกาศที่นำมาวางพิกัดเอง ในรายงานต้องอ้างตัวประกาศ และยังต้องตรวจข้อกำหนดอื่นที่ซ้อนทับ (กฎหมายควบคุมอาคาร เขตคุ้มครองสิ่งแวดล้อม)<br>ข้อมูล ณ '+thDate(Z.built)+" · "+P.length+" ผัง</div>";
  openPanel("ผลตรวจ ณ จุดที่เลือก",h);ensureVisible(lat,lng);
+ if(Z.coast){loadCoast().then(function(C){if($("cb"))$("cb").innerHTML=coastBox(C,lng,lat,ad);},function(){if($("cb"))$("cb").innerHTML=coastBox(null);});}
  if(r.hit){var tok=++colorTok,sh=r.sheets;var hp=r.hit,cz=readColor(hp,lat,lng).then(function(z){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(z,null,sh);return z;},
   function(e){if(tok===colorTok&&$("zc"))$("zc").innerHTML=colorBox(null,e,sh);return null;});
   if(hp.rl)Promise.all([cz,loadRules(hp)]).then(function(a){if(tok===colorTok&&$("zr"))$("zr").innerHTML=ruleBox(hp,a[1],a[0]);},
