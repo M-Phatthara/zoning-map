@@ -524,8 +524,8 @@ function coastSum(C,x,y,ad){ /* หน้าสรุป: อยู่ในแ�
  if(!R.order.length)return h+"<div class=\"si\">ไม่อยู่ในแนวห้ามก่อสร้างริมทะเลหรือเขตคุ้มครองสิ่งแวดล้อมที่มีในฐานข้อมูล</div>";
  R.order.forEach(function(id){var d=C.docs[id],hs=R.hits[id];
   h+='<div class="si"><b>'+esc(coastLabel(d))+"</b>";
-  if(hs.length)h+="<ul>"+hs.map(function(f){return"<li>"+esc(f.z)+(f.a!=null&&f.z.indexOf("ม.")<0?" (ระยะ "+f.a+"-"+f.b+" ม. จากชายฝั่ง)":"")+"</li>";}).join("")+"</ul>";
-  else h+="<br><small>ครอบอำเภอนี้ แต่จุดไม่ตกในแนวที่วาดไว้ บางบริเวณต้องดูแผนที่ท้ายประกาศ</small>";
+  if(hs.length)h+="<ul>"+hs.map(function(f){return"<li>"+esc(f.z)+(f.a!=null&&f.z.indexOf(f.a+"-"+f.b)<0?" (ระยะ "+f.a+"-"+f.b+" ม. จากชายฝั่ง)":"")+"</li>";}).join("")+"</ul>";
+  else h+="<br><small>"+(d.zs.every(function(z){return z.geo;})?"ครอบบางส่วนของอำเภอนี้ จุดนี้อยู่นอกแนวเขตที่วาดไว้":"ครอบอำเภอนี้ แต่จุดไม่ตกในแนวที่วาดไว้ บางบริเวณต้องดูแผนที่ท้ายประกาศ")+"</small>";
   h+="</div>";});
  if(R.near)h+='<div class="w">⚠️ อยู่ใกล้เส้นแบ่งแนวระยะ (ภายใน ~40 ม.) อาจอยู่อีกแนวหนึ่ง</div>';
  return h;}
