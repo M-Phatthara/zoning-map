@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com 'sha256-yuR5vGEUYyNBr5DnCAhaLvaljaOy7xqct6qsv7LSWHk='; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://cdnjs.cloudflare.com https://server.arcgisonline.com https://tile.openstreetmap.org; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdnjs.cloudflare.com 'sha256-bGf2QIZR0/cL5fXDTyLT8PfCuhb/kinyqE0XIW3sIL4='; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://cdnjs.cloudflare.com https://server.arcgisonline.com https://tile.openstreetmap.org; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>แผนที่ผังเมือง</title>
 <meta name="robots" content="noindex,nofollow">
@@ -48,6 +48,7 @@ html,body{height:100%;margin:0;font-family:"Sarabun","Leelawadee UI","Noto Sans 
 .tag{font-size:12.5px;border-radius:99px;padding:2px 9px;background:var(--soft);border:1px solid var(--line)}
 .tag.ok{background:var(--okbg);border-color:#b7dfc6;color:var(--ok)}
 .tag.old{background:#eee;color:#666}
+.tag.dr{background:#f3e8f8;border-color:#d7b8e6;color:#6c3483}
 .w{background:var(--warnbg);border:1px solid #f0d49a;color:var(--warn);border-radius:8px;padding:7px 10px;margin:6px 0;font-size:13.5px;line-height:1.5}
 .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .acts a,.acts button{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--ink);text-decoration:none}
@@ -151,6 +152,7 @@ h3{font-size:13.5px;margin:14px 0 4px;color:var(--mute)}
     <div class="lg"><i style="border-color:#e07b00"></i>แผนผัง EEC</div>
     <div class="lg"><i style="border-color:#1f4fbf;border-top-style:dashed"></i>ผังจังหวัด</div>
     <div class="lg"><i style="border-color:#777;border-top-style:dotted"></i>ฉบับเดิม (ถูกแทนแล้ว)</div>
+    <div class="lg"><i style="border-color:#8e44ad;border-top-style:dashed"></i>ร่างผัง (ยังไม่ใช้บังคับ)</div>
     <label id="lCoast" hidden><input type="checkbox" id="cCoast"> ชั้นริมทะเล</label>
     <div class="lg" id="lgCoast" hidden><i style="border-color:#c0392b;border-top-width:6px"></i>กฎกระทรวงห้ามก่อสร้าง (แนวระยะจากชายฝั่ง)</div>
     <div class="lg" id="lgEnv" hidden><i style="border-color:#1f6fb4;border-top-width:6px"></i>เขตคุ้มครองสิ่งแวดล้อม (ประกาศ ทส.)</div>
@@ -244,6 +246,7 @@ map.createPane("lines").style.zIndex=420;map.getPane("lines").style.pointerEvent
 var ll=function(g){return g.map(function(poly){return poly.map(function(r){return r.map(function(c){return[c[1],c[0]];});});});};
 var lineStyle=function(p){
  if(p.rk===9)return{color:"#777",weight:1.5,dashArray:"2 5"};
+ if(p.rk===8)return{color:"#8e44ad",weight:1.8,dashArray:"9 6"};
  if(p.lv==="จังหวัด")return{color:"#1f4fbf",weight:1.6,dashArray:"7 5"};
  if(p.lv==="เมือง/ชุมชน")return{color:"#d6006c",weight:2};
  return{color:"#e07b00",weight:2};};
@@ -259,7 +262,7 @@ function wanted(){ /* ใช้กรอบของแนวเขตผัง 
  var out=[],b=map.getBounds(),ct=map.getCenter(),c=[];
  P.concat(A).forEach(function(p){
   if(pinned[p.id]||p.id===focus){out.push(p);return;}
-  if(!$("cImg").checked||p.sheet||p.rk===9)return;
+  if(!$("cImg").checked||p.sheet||p.rk>=8)return;
   var pb=p._line.getBounds();if(!b.intersects(pb))return;
   var w=map.latLngToContainerPoint(pb.getNorthEast()).x-map.latLngToContainerPoint(pb.getSouthWest()).x;
   if(w<160)return;c.push([p,w,pb.contains(ct)?0:1]);});
@@ -308,7 +311,7 @@ function edgeDist(g,x,y){ /* ระยะถึงแนวเขตที่ใ
 var effG=function(p){return p.e===1?p.g:p.e;};
 function lookup(x,y){
  var cover=P.filter(function(p){return inB(p.b,x,y)&&inside(p.g,x,y);});
- var live=cover.filter(function(p){return p.rk!==9;});
+ var live=cover.filter(function(p){return p.rk<8;});
  var hit=live.filter(function(p){return p.e&&inside(effG(p),x,y);}).sort(function(a,b){return a.rk-b.rk;})[0];
  if(!hit&&live.length)hit=live.slice().sort(function(a,b){return a.rk-b.rk||(a.dt<b.dt?1:-1);})[0];
  return{hit:hit,cover:cover,sheets:A.filter(function(a){return inB(a.b,x,y);})};}
@@ -461,6 +464,9 @@ function colorBox(z,err,sheets){
  if(sheets.length)h+='<div class="w">⚠️ จุดอยู่ในกรอบแผ่นฉบับแก้ไข สีที่อ่านได้มาจากผังหลัก อาจเป็นสีเดิมก่อนแก้</div>';
  return h+"<small>สีบอกได้แค่กลุ่มประเภท ต้องยืนยันกับสัญลักษณ์สีในภาพทั้งหน้า · เส้นแบ่งโซนย่อยที่สีเดียวกัน (เช่น พ.3 กับ พ.4) และเลขโซนอ่านจากสีไม่ได้</small>";}
 
+/* ร่างผัง (ลำดับ 8): อ่านสีจากภาพร่างแยกกล่อง ไม่ปนกับผังที่ใช้บังคับ */
+function draftBox(z,err){return colorBox(z,err,[]).replace(/^<div class="cap">[^<]*<\/div>/,'<div class="cap">สีในร่างผัง ณ จุดนี้ (⚠️ ร่าง ยังไม่ใช้บังคับ · อ่านจากภาพอัตโนมัติ ค่าประมาณ)</div>').replace("ประเภทที่ตรงสัญลักษณ์ของผังดูในกล่องข้อกำหนดด้านล่าง","ประเภทให้เทียบสัญลักษณ์สีในภาพทั้งหน้าของร่าง");}
+function draftSum(z,err){if(err)return"อ่านสีไม่ได้ ดูภาพร่างแทน";if(!z)return"จุดนี้อยู่นอกภาพร่าง";if(z.name==="ขาว")return"จุดตกบนพื้นขาวของร่าง"+(z.near?" สีที่ใกล้สุดคือ"+esc(z.near)+" ห่างราว "+z.dist+" ม.":"");return'<span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;background:rgb('+z.rgb.join(",")+')"></span> สีในร่าง: <b>'+esc(z.name)+"</b>"+(z.dist!==null&&z.dist<z.tol?' <span class="w" style="display:inline">⚠️ ใกล้'+esc(z.near)+" "+z.dist+" ม."+"</span>":"")+" <small>(ร่างที่ประกาศจริงอาจต่าง)</small>";}
 /* ---------- ข้อกำหนดรายประเภทที่ดิน (ไฟล์รายผัง โหลดเมื่อแตะจุด · สกัดอัตโนมัติจากตัวประกาศ = ข้อมูลอ้างอิง) ---------- */
 var RULES={};
 function loadRules(p){
@@ -617,19 +623,20 @@ function warnings(p,x,y){
  if(p.st.indexOf("มีฉบับใหม่กว่า")>=0)w.push("ผังนี้มีฉบับแก้ไขเพิ่มเติม ต้องตรวจว่าแก้ข้อกำหนดข้อใด");
  if(p.miss)w.push("จังหวัดนี้ยังมีผังเมือง/ชุมชนที่ไม่มีแผนที่ในฐานข้อมูล (รหัส "+esc(p.miss)+") ถ้าจุดอยู่ในท้องที่นั้น ผังที่ใช้จริงอาจเป็นผังดังกล่าว");
  if(p.rk===9)w.push("ผังฉบับเดิม ถูกแทนด้วยฉบับใหม่แล้ว แสดงไว้เพื่ออ้างอิงเท่านั้น");
+ if(p.rk===8)w.push("ร่างผัง ยังไม่มีผลบังคับ ("+(p.dr||"ร่าง")+") ร่างที่ประกาศใช้จริงอาจต่างจากนี้ ใช้ผังที่ใช้บังคับเป็นหลัก แสดงไว้เพื่ออ้างอิงเท่านั้น");
  return w.map(function(t){return'<div class="w">⚠️ '+esc(t)+"</div>";}).join("");}
 function card(p,x,y,main,role){
  var pdf=p.pdf?encodeURI(p.pdf):p.url,h='<div class="card'+(main?" main":"")+'">';
  if(main)h+='<div class="cap">ผังที่ใช้บังคับ ณ จุดนี้</div>';
  h+='<div class="name">'+esc(p.n)+'</div><div class="tags"><span class="tag">'+esc(p.lv)+"</span>";
  if(p.dt)h+='<span class="tag">ประกาศ '+thDate(p.dt)+"</span>";
- h+=p.rk===9?'<span class="tag old">ฉบับเดิม</span>':role?'<span class="tag old">'+esc(role)+'</span>':'<span class="tag ok">ใช้บังคับ</span>';
+ h+=p.rk===9?'<span class="tag old">ฉบับเดิม</span>':p.rk===8?'<span class="tag dr">ร่าง ยังไม่ใช้บังคับ</span>':role?'<span class="tag old">'+esc(role)+'</span>':'<span class="tag ok">ใช้บังคับ</span>';
  h+='<span class="tag">'+esc(p.pv)+"</span></div>"+warnings(p,x,y)+'<div class="acts">';
  if(pdf)h+='<a class="pri" target="_blank" rel="noopener" href="'+esc(pdf)+'">เปิดตัวประกาศ (PDF)</a>';
  if(p.pf)h+='<button data-page="'+p.id+'">ภาพทั้งหน้า + สัญลักษณ์สี</button>';
  else if(p.page)h+='<a target="_blank" rel="noopener" href="'+esc(encodeURI(p.page))+'">ภาพทั้งหน้า + สัญลักษณ์สี</a>';
  h+='<button data-zoom="'+p.id+'">ซูมไปที่ผัง</button>';
- if(p.rk===9)h+='<button data-pin="'+p.id+'">'+(pinned[p.id]?"ซ่อนภาพผังนี้":"ซ้อนภาพผังนี้")+"</button>";
+ if(p.rk>=8)h+='<button data-pin="'+p.id+'">'+(pinned[p.id]?"ซ่อนภาพผังนี้":"ซ้อนภาพผังนี้")+"</button>";
  h+="</div><details><summary>รายละเอียดแผนที่</summary><p>ความละเอียดภาพ "+p.px+" ม. ต่อจุดภาพ · คลาดจากขีดพิกัดสูงสุด "+p.err+" ม. · เนื้อที่ราว "+p.km2.toLocaleString()+" ตร.กม. · รหัสในทะเบียน "+esc(p.asa)+"</p><p>"+esc(p.note)+"</p>"+(p.txt?"<p>โน้ตตัวบทในคลังความรู้: "+esc(p.txt)+"</p>":"")+"</details></div>";
  return h;}
 function sheetCards(sheets){
@@ -652,6 +659,8 @@ function inspect(lat,lng,fly){
   s+="<b>"+esc(r.hit.n)+'</b><div id="sZ">กำลังอ่านสีจากภาพผัง...</div>'+(nw?'<div class="w">⚠️ มีข้อควรระวังของผังนี้ '+nw+" ข้อ ดูแท็บรายละเอียด</div>":"");}
  else s+="ไม่พบผังที่ครอบจุดนี้ในฐานข้อมูล <small>(ไม่ได้แปลว่าไม่มีข้อกำหนด)</small>"+(r.sheets.length?'<div class="w">⚠️ อยู่ในกรอบแผ่นฉบับแก้ไข ดูแท็บรายละเอียด</div>':"");
  s+="</div>";
+ var drafts=r.hit?r.cover.filter(function(p){return p.rk===8;}):[];
+ if(drafts.length)s+='<div class="sr"><div class="cap">ร่างผัง (ยังไม่ใช้บังคับ)</div>'+drafts.map(function(p,i){return"<b>"+esc(p.n)+'</b><div id="sD'+i+'">กำลังอ่านสีจากภาพร่าง...</div>';}).join("")+"</div>";
  if(Z.coast)s+='<div class="sr" id="sC"><div class="cap">ริมทะเล</div>กำลังโหลด...</div>';
  if(ad&&ad.o.length)s+='<div class="sr"><div class="cap">ข้อบัญญัติท้องถิ่นห้ามก่อสร้าง</div>'+esc(admLabel(ad))+" มี "+ad.o.length+' ฉบับที่ยังไม่ประกาศเลิกใช้ <small>(ไม่มีแนวเขตในฐานข้อมูล ต้องตรวจว่าจุดอยู่ในเขตท้องถิ่นนั้น)</small><ul>'+ad.o.map(function(i){return"<li>"+esc(ORD[i].n)+"</li>";}).join("")+"</ul></div>";
  s+='<button class="more" data-tab="d">ดูรายละเอียด ข้อกำหนด และตัวประกาศ →</button><div class="foot">ข้อมูลอ้างอิงจากแผนที่ที่วางพิกัดเอง ไม่ใช่ข้อมูลทางราชการ ในรายงานต้องอ้างตัวประกาศ</div>';
@@ -659,7 +668,7 @@ function inspect(lat,lng,fly){
   h+=card(r.hit,lng,lat,true)+'<div class="zc" id="zc"><div class="cap">สีที่ดิน ณ จุดนี้</div>กำลังอ่านสีจากภาพผัง...</div>'+(r.hit.rl?'<div class="zr" id="zr"><div class="cap">ข้อกำหนดการใช้ที่ดิน</div>กำลังโหลดข้อกำหนด...</div>':"");
   if(same.length)h+='<div class="w">⚠️ จุดนี้มีผังระดับเดียวกันครอบซ้อนอีกฉบับ ('+same.map(function(p){return esc(p.n);}).join(", ")+') ระบบเลือกฉบับที่ประกาศใหม่กว่าตามหลักทั่วไป ต้องเปิดตัวประกาศทั้งสองฉบับยืนยัน</div>';
   h+=sheetCards(r.sheets);hi.setLatLngs(ll(r.hit.g)).addTo(map);
-  if(rest.length){h+="<h3>ผังอื่นที่ครอบจุดนี้ (ไม่ได้ใช้บังคับ ณ จุดนี้ หรือเป็นฉบับเดิม)</h3>";rest.forEach(function(p){h+=card(p,null,null,false,p.rk>r.hit.rk?"ไม่ใช้ ณ จุดนี้ (มีผังลำดับก่อนครอบ)":"ไม่ใช้ ณ จุดนี้ (มีฉบับใหม่กว่าครอบ)");});}
+  if(rest.length){h+="<h3>ผังอื่นที่ครอบจุดนี้ (ไม่ได้ใช้บังคับ ณ จุดนี้ ฉบับเดิม หรือร่าง)</h3>";rest.forEach(function(p){h+=card(p,null,null,false,p.rk>r.hit.rk?"ไม่ใช้ ณ จุดนี้ (มีผังลำดับก่อนครอบ)":"ไม่ใช้ ณ จุดนี้ (มีฉบับใหม่กว่าครอบ)");var di=drafts.indexOf(p);if(di>=0)h+='<div class="zc" id="zd'+di+'"><div class="cap">สีในร่างผัง ณ จุดนี้</div>กำลังอ่านสีจากภาพร่าง...</div>';});}
  }else{map.removeLayer(hi);h+='<div class="card"><div class="name">ไม่พบผังที่ครอบจุดนี้</div><p style="margin:0;line-height:1.6">จุดอาจอยู่นอกแนวเขตผังทุกฉบับในฐานข้อมูล (เช่น ในทะเล หรือพื้นที่ที่แผนที่ผังเว้นขาวไว้) ไม่ได้แปลว่าไม่มีข้อกำหนด ควรตรวจกับตัวประกาศของจังหวัดนั้น</p></div>'+sheetCards(r.sheets);}
  h+=ordBox(ad);
  if(Z.coast)h+='<div class="zr" id="cb"><div class="cap">ข้อจำกัดริมทะเล</div>กำลังโหลด...</div>';
@@ -672,6 +681,8 @@ function inspect(lat,lng,fly){
   function(e){if(tok===colorTok){if($("zc"))$("zc").innerHTML=colorBox(null,e,sh);if($("sZ"))$("sZ").innerHTML=zSum(null,e,null,sh);}return null;});
   if(hp.rl)Promise.all([cz,loadRules(hp)]).then(function(a){if(tok!==colorTok)return;if($("zr"))$("zr").innerHTML=ruleBox(hp,a[1],a[0]);if(a[0]&&$("sZ"))$("sZ").innerHTML=zSum(a[0],null,a[1],sh);},
    function(){if(tok!==colorTok)return;if($("zr"))$("zr").innerHTML=ruleBox(hp,null,null,1);cz.then(function(z){if(tok===colorTok&&z&&$("sZ"))$("sZ").innerHTML=zSum(z,null,null,sh);});});}
+ drafts.forEach(function(p,i){readColor(p,lat,lng).then(function(z){if(tok!==colorTok)return;if($("zd"+i))$("zd"+i).innerHTML=draftBox(z,null);if($("sD"+i))$("sD"+i).innerHTML=draftSum(z,null);},
+  function(e){if(tok!==colorTok)return;if($("zd"+i))$("zd"+i).innerHTML=draftBox(null,e);if($("sD"+i))$("sD"+i).innerHTML=draftSum(null,e);});});
  try{history.replaceState(null,"","#"+lat.toFixed(5)+","+lng.toFixed(5)+","+map.getZoom());}catch(e){}}
 function fitTo(p){ /* ซูมให้เห็นทั้งผัง โดยเว้นที่ให้แผงข้อมูล */
  var b=p._line?p._line.getBounds():L.latLngBounds(p.b),pn=$("panel"),open=pn.classList.contains("open"),mob=window.matchMedia("(max-width:760px)").matches;
@@ -709,7 +720,7 @@ function suggest(){
  var s=q.value.trim();if(!s||parseCoord(s)){sug.style.display="none";return;}
  var tk=s.toLowerCase().split(/\s+/);
  sugList=P.filter(function(p){var hay=(p.n+" "+p.pv+" "+p.asa).toLowerCase();return tk.every(function(t){return hay.indexOf(t)>=0;});}).sort(function(a,b){return a.rk-b.rk;}).slice(0,25);
- sug.innerHTML=sugList.length?sugList.map(function(p,i){return'<div data-i="'+i+'">'+esc(p.n)+"<small>"+esc(p.pv)+" · "+esc(p.lv)+(p.rk===9?" · ฉบับเดิม":"")+"</small></div>";}).join(""):'<div style="cursor:default;color:#5d6878">ไม่พบผังที่ชื่อตรงกับคำค้น</div>';
+ sug.innerHTML=sugList.length?sugList.map(function(p,i){return'<div data-i="'+i+'">'+esc(p.n)+"<small>"+esc(p.pv)+" · "+esc(p.lv)+(p.rk===9?" · ฉบับเดิม":p.rk===8?" · ร่าง":"")+"</small></div>";}).join(""):'<div style="cursor:default;color:#5d6878">ไม่พบผังที่ชื่อตรงกับคำค้น</div>';
  sug.style.display="block";}
 q.addEventListener("input",suggest);q.addEventListener("focus",suggest);
 q.addEventListener("keydown",function(e){if(e.key!=="Enter")return;var c=parseCoord(q.value);
@@ -722,7 +733,7 @@ $("bList").onclick=function(){
  var g={};P.forEach(function(p){(g[p.pv]=g[p.pv]||[]).push(p);});
  var h='<div class="foot" style="margin:0 0 8px">'+P.length+" ผัง ใน "+Object.keys(g).length+" กลุ่มจังหวัด เลือกผังเพื่อซูมไปดู</div>";
  Object.keys(g).sort(function(a,b){return a.localeCompare(b,"th");}).forEach(function(pv){
-  h+='<details class="prov"><summary>'+esc(pv)+" ("+g[pv].length+")</summary>"+g[pv].sort(function(a,b){return a.rk-b.rk||a.n.localeCompare(b.n,"th");}).map(function(p){return'<div class="it" data-plan="'+p.id+'">'+esc(p.n)+(p.rk===9?" <small>(ฉบับเดิม)</small>":"")+"</div>";}).join("")+"</details>";});
+  h+='<details class="prov"><summary>'+esc(pv)+" ("+g[pv].length+")</summary>"+g[pv].sort(function(a,b){return a.rk-b.rk||a.n.localeCompare(b.n,"th");}).map(function(p){return'<div class="it" data-plan="'+p.id+'">'+esc(p.n)+(p.rk===9?" <small>(ฉบับเดิม)</small>":p.rk===8?" <small>(ร่าง)</small>":"")+"</div>";}).join("")+"</details>";});
  openPanel("รายชื่อผังทั้งหมด",h);};
 $("bLoc").onclick=function(){
  if(!navigator.geolocation){alert("เบราว์เซอร์นี้ไม่รองรับการหาตำแหน่ง");return;}
